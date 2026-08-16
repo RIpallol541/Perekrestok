@@ -617,9 +617,21 @@ function SupportArtwork({ support, selected, tool, onSelect, onDragStart, onLabe
   onLabelDragStart: (event: PointerEvent<SVGGElement>) => void;
   onConnect: (event: PointerEvent<SVGGElement>) => void;
 }) {
-  const labelPoint = { x: support.x + support.labelOffsetX, y: support.y + support.labelOffsetY };
-  const labelWidth = Math.max(74, Math.min(190, support.name.length * 6.4 + 22));
-  return <>
+const labelPoint = {
+  x: support.x + support.labelOffsetX,
+  y: support.y + support.labelOffsetY,
+};
+
+const supportLabelText = (support.name ?? "").trim();
+
+const labelWidth = Math.max(
+  74,
+  Math.min(
+    190,
+    supportLabelText.length * 6.4 + 22
+  )
+);
+return <>
   <g
     className={selected ? `support support-${support.kind} selected` : `support support-${support.kind}`}
     transform={`translate(${support.x} ${support.y}) rotate(${support.rotation})`}
@@ -649,17 +661,46 @@ function SupportArtwork({ support, selected, tool, onSelect, onDragStart, onLabe
       <path className="support-detail" d={`M 20 -8 L 20 8 M ${support.consoleLength - 4} -9 L ${support.consoleLength - 4} 9`} />
     </>}
   </g>
-  <g className={selected ? "support-label-callout selected" : "support-label-callout"}>
-    <path className="support-label-leader" d={pathData([{ x: support.x, y: support.y }, labelPoint])} pointerEvents="none" />
-    <g className="support-label" transform={`translate(${labelPoint.x} ${labelPoint.y})`} onPointerDown={(event) => {
-      if (tool !== "select") return;
-      event.stopPropagation();
-      onLabelDragStart(event);
-    }}>
-      <rect x={-labelWidth / 2} y="-10" width={labelWidth} height="20" rx="7" />
-      <text y="4" textAnchor="middle">{support.name}</text>
+{supportLabelText && (
+  <g
+    className={
+      selected
+        ? "support-label-callout selected"
+        : "support-label-callout"
+    }
+  >
+    <path
+      className="support-label-leader"
+      d={pathData([
+        { x: support.x, y: support.y },
+        labelPoint,
+      ])}
+      pointerEvents="none"
+    />
+
+    <g
+      className="support-label"
+      transform={`translate(${labelPoint.x} ${labelPoint.y})`}
+      onPointerDown={(event) => {
+        if (tool !== "select") return;
+        event.stopPropagation();
+        onLabelDragStart(event);
+      }}
+    >
+      <rect
+        x={-labelWidth / 2}
+        y="-10"
+        width={labelWidth}
+        height="20"
+        rx="7"
+      />
+
+      <text y="4" textAnchor="middle">
+        {supportLabelText}
+      </text>
     </g>
   </g>
+)}
   </>;
 }
 
@@ -770,7 +811,6 @@ function CabinetArtwork({ cabinet, support, selected, interactive, onSelect, onD
     }}>
       <circle className="cabinet-hit" r="28" />
       <CabinetSymbol kind={cabinet.kind} />
-      <g className="cabinet-label" pointerEvents="none"><rect x="-26" y="18" width="52" height="18" rx="6" /><text y="31" textAnchor="middle">{cabinet.name}</text></g>
     </g>
   </g>;
 }

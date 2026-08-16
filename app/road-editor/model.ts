@@ -138,9 +138,26 @@ export interface CableRoute {
   id: string;
   kind: CableKind;
   name: string;
+
   fromSupportId: string;
   toSupportId: string;
+
+  /*
+   * НОВОЕ:
+   * если кабель должен закончиться
+   * в конкретном шкафу на конечной опоре
+   */
+  toCabinetId?: string;
+
+  /*
+   * НОВОЕ:
+   * при желании можно указать
+   * шкаф и на начальной опоре
+   */
+  fromCabinetId?: string;
+
   points: Point[];
+
   labelText: string;
   labelAt: number;
   labelOffset: number;
@@ -1462,7 +1479,7 @@ export function createSupport(
 
     kind,
 
-    name: `Опора №${index}`,
+    name: ``,
 
     x: point.x,
     y: point.y,
@@ -2587,8 +2604,9 @@ export function migrateProject(
         : 0;
 
     support.name =
-      support.name ||
-      "Опора";
+    typeof support.name === "string"
+      ? support.name
+      : "Опора";
 
     support.consoleLength =
       Number.isFinite(
