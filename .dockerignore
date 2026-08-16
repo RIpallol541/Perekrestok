@@ -1,0 +1,8 @@
+node_modules
+dist
+.next
+.wrangler
+.git
+work
+outputs
+npm-debug.log*
