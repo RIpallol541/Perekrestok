@@ -1277,7 +1277,13 @@ export default function Home() {
                 <div className="camera-quick-grid">{CAMERA_DEFINITIONS.map((definition) => <button key={definition.id} onClick={() => addCameraToSupport(definition.id, selectedSupport.id)}><b style={{ color: definition.color }}>{definition.prefix}</b><span>{definition.name}</span></button>)}</div>
                 <p className="section-label">Кабели к камерам</p>
                 <button className="branch-button camera-auto-connect" onClick={() => autoConnectSupportCameras(selectedSupport.id)}>⚡ Автоматически провести UTP и КГтп ко всем камерам</button>
-                <div className="property-hint">UTP идёт от шкафа управления, КГтп — от узла «Феникс», если он установлен; иначе обе линии начинаются в шкафу управления. Недостающий шкаф создаётся автоматически.</div>
+                <div className="property-hint">
+                  UTP выходит с ближайшей к камерам стороны шкафа управления.
+                  Кабели автоматически раскладываются отдельными параллельными
+                  трассами вдоль консоли и ответвляются к своим камерам.
+                  КГтп идёт от узла «Феникс», если он установлен;
+                  иначе используется шкаф управления.
+                </div>
               </div>}
               <p className="section-label">Прикрепить оборудование</p>
               <div className="cabinet-quick-grid">{CABINET_DEFINITIONS.map((definition) => <button key={definition.id} onClick={() => addCabinetToSupport(definition.id)}><b>{definition.short}</b><span>{definition.name}</span></button>)}</div>
