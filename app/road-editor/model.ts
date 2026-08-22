@@ -4,10 +4,26 @@ export type LaneKind = "traffic" | "tram" | "bus" | "bike" | "median";
 export type LaneDirection = "forward" | "backward" | "both";
 export type Turn = "left" | "straight" | "right" | "uturn";
 export type RoadSide = "left" | "right";
-export type RoadFeatureKind = "transit-stop" | "lane-widening" | "lane-narrowing" | "empty-pocket";
-export type SupportKind = "power-pole" | "lighting-mast" | "console-pole";
-export type CabinetKind = "control-cabinet" | "power-entry" | "distribution-panel" | "phoenix-node" | "signal-computer";
+export type RoadFeatureKind =
+  | "transit-stop"
+  | "lane-widening"
+  | "lane-narrowing"
+  | "empty-pocket";
+
+export type SupportKind =
+  | "power-pole"
+  | "lighting-mast"
+  | "console-pole";
+
+export type CabinetKind =
+  | "control-cabinet"
+  | "power-entry"
+  | "distribution-panel"
+  | "phoenix-node"
+  | "signal-computer";
+
 export type CableKind = "sip" | "fiber" | "utp" | "control";
+
 export type CameraKind = "overview" | "detector" | "radar";
 export type CameraMountSide = "a" | "b";
 
@@ -123,6 +139,10 @@ export interface SupportCamera {
   rotation: number;
   labelOffsetX: number;
   labelOffsetY: number;
+  coverageOffsetX: number;
+  coverageOffsetY: number;
+  coverageWidth: number;
+  coverageDepth: number;
 }
 
 export interface SupportCabinet {
@@ -142,19 +162,9 @@ export interface CableRoute {
   fromSupportId: string;
   toSupportId: string;
 
-  /*
-   * НОВОЕ:
-   * если кабель должен закончиться
-   * в конкретном шкафу на конечной опоре
-   */
-  toCabinetId?: string;
-
-  /*
-   * НОВОЕ:
-   * при желании можно указать
-   * шкаф и на начальной опоре
-   */
-  fromCabinetId?: string;
+  /* Межопорные кабели всегда подключаются только к опорам. */
+  fromCabinetId?: string | null;
+  toCabinetId?: string | null;
 
   points: Point[];
 
@@ -219,7 +229,15 @@ export type Selection =
   | { type: "vertex"; roadId: string; index: number }
   | { type: "cross-section"; roadId: string; sectionId: string }
   | { type: "lane"; roadId: string; laneId: string }
-  | { type: "separator"; roadId: string; index: number; sectionId: string; at: number; start?: number; end?: number }
+  | {
+      type: "separator";
+      roadId: string;
+      index: number;
+      sectionId: string;
+      at: number;
+      start?: number;
+      end?: number;
+    }
   | { type: "feature"; roadId: string; featureId: string }
   | { type: "stamp"; stampId: string }
   | { type: "support"; supportId: string }
@@ -257,60 +275,15 @@ export interface MarkingDefinition {
 }
 
 export const LINE_MARKINGS: MarkingDefinition[] = [
-  {
-    id: "none",
-    name: "Без линии",
-    purpose: "Граница не отображается",
-    sample: "none",
-  },
-  {
-    id: "1.1",
-    name: "1.1 · сплошная",
-    purpose: "Разделяет потоки или обозначает границы полос",
-    sample: "solid",
-  },
-  {
-    id: "1.2",
-    name: "1.2 · краевая",
-    purpose: "Обозначает край проезжей части",
-    sample: "wide",
-  },
-  {
-    id: "1.3",
-    name: "1.3 · двойная",
-    purpose: "Разделяет встречные направления с четырьмя полосами и более",
-    sample: "double",
-  },
-  {
-    id: "1.5",
-    name: "1.5 · прерывистая",
-    purpose: "Разделяет транспортные потоки и полосы",
-    sample: "dash",
-  },
-  {
-    id: "1.6",
-    name: "1.6 · приближение",
-    purpose: "Предупреждает о приближении к сплошной линии",
-    sample: "approach",
-  },
-  {
-    id: "1.7",
-    name: "1.7 · перекрёсток",
-    purpose: "Направляет полосы в пределах перекрёстка",
-    sample: "short",
-  },
-  {
-    id: "1.8",
-    name: "1.8 · переходная",
-    purpose: "Граница полосы разгона или торможения",
-    sample: "wide",
-  },
-  {
-    id: "1.11",
-    name: "1.11 · комбинированная",
-    purpose: "Перестроение разрешено со стороны прерывистой",
-    sample: "combined",
-  },
+  { id: "none", name: "Без линии", purpose: "Граница не отображается", sample: "none" },
+  { id: "1.1", name: "1.1 · сплошная", purpose: "Разделяет потоки или обозначает границы полос", sample: "solid" },
+  { id: "1.2", name: "1.2 · краевая", purpose: "Обозначает край проезжей части", sample: "wide" },
+  { id: "1.3", name: "1.3 · двойная", purpose: "Разделяет встречные направления с четырьмя полосами и более", sample: "double" },
+  { id: "1.5", name: "1.5 · прерывистая", purpose: "Разделяет транспортные потоки и полосы", sample: "dash" },
+  { id: "1.6", name: "1.6 · приближение", purpose: "Предупреждает о приближении к сплошной линии", sample: "approach" },
+  { id: "1.7", name: "1.7 · перекрёсток", purpose: "Направляет полосы в пределах перекрёстка", sample: "short" },
+  { id: "1.8", name: "1.8 · переходная", purpose: "Граница полосы разгона или торможения", sample: "wide" },
+  { id: "1.11", name: "1.11 · комбинированная", purpose: "Перестроение разрешено со стороны прерывистой", sample: "combined" },
 ];
 
 export interface StampDefinition {
@@ -327,24 +300,12 @@ export const STAMP_DEFINITIONS: StampDefinition[] = [
   { id: "1.18-left", name: "1.18 · налево", group: "Стрелки" },
   { id: "1.18-straight", name: "1.18 · прямо", group: "Стрелки" },
   { id: "1.18-right", name: "1.18 · направо", group: "Стрелки" },
-  {
-    id: "1.18-combo",
-    name: "1.18 · прямо / направо",
-    group: "Стрелки",
-  },
+  { id: "1.18-combo", name: "1.18 · прямо / направо", group: "Стрелки" },
   { id: "1.20", name: "1.20 · треугольник", group: "Символы" },
   { id: "1.21", name: "1.21 · СТОП", group: "Символы" },
-  {
-    id: "1.23.1",
-    name: "1.23.1 · маршрутный ТС",
-    group: "Символы",
-  },
+  { id: "1.23.1", name: "1.23.1 · маршрутный ТС", group: "Символы" },
   { id: "1.23.3", name: "1.23.3 · велосипед", group: "Символы" },
-  {
-    id: "1.24.1",
-    name: "1.24.1 · знак на дороге",
-    group: "Символы",
-  },
+  { id: "1.24.1", name: "1.24.1 · знак на дороге", group: "Символы" },
   { id: "1.25", name: "1.25 · неровность", group: "Символы" },
 ];
 
@@ -353,21 +314,9 @@ export const SUPPORT_DEFINITIONS: Array<{
   name: string;
   description: string;
 }> = [
-  {
-    id: "power-pole",
-    name: "Опора ЛЭП",
-    description: "Круглая существующая опора инженерной сети",
-  },
-  {
-    id: "lighting-mast",
-    name: "Опора освещения",
-    description: "Мачта с короткой световой консолью",
-  },
-  {
-    id: "console-pole",
-    name: "Консольная опора",
-    description: "Опора с выносной перекладиной для оборудования",
-  },
+  { id: "power-pole", name: "Опора ЛЭП", description: "Круглая существующая опора инженерной сети" },
+  { id: "lighting-mast", name: "Опора освещения", description: "Мачта с короткой световой консолью" },
+  { id: "console-pole", name: "Консольная опора", description: "Опора с выносной перекладиной для оборудования" },
 ];
 
 export const CAMERA_DEFINITIONS: Array<{
@@ -377,28 +326,42 @@ export const CAMERA_DEFINITIONS: Array<{
   color: string;
   description: string;
 }> = [
-  {
-    id: "overview",
-    name: "Обзорная камера",
-    prefix: "V",
-    color: "#10a968",
-    description: "Зелёный обзорный датчик V/R из схем расположения",
-  },
-  {
-    id: "detector",
-    name: "Детектор фиксации",
-    prefix: "S",
-    color: "#d94b54",
-    description: "Датчик фиксации нарушений с красным контуром",
-  },
-  {
-    id: "radar",
-    name: "Радарный блок",
-    prefix: "D",
-    color: "#c95b35",
-    description: "Радарный блок D с направленным корпусом",
-  },
+  { id: "overview", name: "Обзорная камера", prefix: "V", color: "#10a968", description: "Зелёный обзорный датчик V/R из схем расположения" },
+  { id: "detector", name: "Детектор фиксации", prefix: "S", color: "#d94b54", description: "Датчик фиксации нарушений с красным контуром" },
+  { id: "radar", name: "Радарный блок", prefix: "D", color: "#c95b35", description: "Радарный блок D с направленным корпусом" },
 ];
+
+export const CABINET_DEFINITIONS: Array<{
+  id: CabinetKind;
+  name: string;
+  short: string;
+  description: string;
+}> = [
+  { id: "control-cabinet", name: "Шкаф управления", short: "ШУ", description: "Синий диагональный шкаф из монтажных схем" },
+  { id: "power-entry", name: "Точка подключения питания", short: "ТП", description: "Красно-белый ввод электропитания" },
+  { id: "distribution-panel", name: "Дополнительный электрощит", short: "ЭЩ", description: "Оранжево-белый распределительный щит" },
+  { id: "phoenix-node", name: "Узел коммутации «Феникс»", short: "Ф", description: "Жёлтый узел коммутации оборудования" },
+  { id: "signal-computer", name: "Микрокомпьютер светофора", short: "МК", description: "Контроллер обработки сигналов светофора" },
+];
+
+export const CABLE_DEFINITIONS: Array<{
+  id: CableKind;
+  name: string;
+  color: string;
+  description: string;
+}> = [
+  { id: "sip", name: "СИП", color: "#e63c43", description: "Силовая линия" },
+  { id: "fiber", name: "Оптический кабель", color: "#13a85c", description: "Линия передачи данных" },
+  { id: "utp", name: "UTP cat.5e", color: "#f1c91c", description: "Сетевой кабель" },
+  { id: "control", name: "КГтп-ХЛ 2×2,5", color: "#a02aa6", description: "Управляющий кабель" },
+];
+
+let sequence = 0;
+
+export function uid(prefix: string) {
+  sequence += 1;
+  return `${prefix}-${Date.now().toString(36)}-${sequence.toString(36)}`;
+}
 
 export function cameraMountPosition(
   length: number,
@@ -426,7 +389,7 @@ export function supportLocalPoint(
   support: Support,
   point: Point,
 ): Point {
-  const angle = (support.rotation * Math.PI) / 180;
+  const angle = support.rotation * Math.PI / 180;
 
   return {
     x:
@@ -438,6 +401,25 @@ export function supportLocalPoint(
       support.y +
       point.x * Math.sin(angle) +
       point.y * Math.cos(angle),
+  };
+}
+
+function supportWorldToLocalPoint(
+  support: Support,
+  point: Point,
+): Point {
+  const angle = support.rotation * Math.PI / 180;
+  const dx = point.x - support.x;
+  const dy = point.y - support.y;
+
+  return {
+    x:
+      dx * Math.cos(angle) +
+      dy * Math.sin(angle),
+
+    y:
+      -dx * Math.sin(angle) +
+      dy * Math.cos(angle),
   };
 }
 
@@ -476,128 +458,53 @@ export function supportCameraMountPosition(
     camera.slot,
   );
 
-  return supportLocalPoint(support, {
-    x: reach,
-    y: camera.side === "a" ? -15 : 15,
-  });
+  return supportLocalPoint(
+    support,
+    {
+      x: reach,
+      y: camera.side === "a" ? -15 : 15,
+    },
+  );
 }
 
-/* ============================================================
- * АВТОМАТИЧЕСКАЯ ПРОКЛАДКА КАБЕЛЕЙ К КАМЕРАМ
- * ============================================================
- *
- * UTP:
- * - отдельный кабель к каждой камере;
- * - отдельная параллельная дорожка;
- * - кабель идёт вдоль балки;
- * - затем короткий отвод к своей камере.
- *
- * КГтп:
- * - одна общая магистраль от шкафа до балки;
- * - на балке формируется общий узел;
- * - от узла кабели расходятся к камерам;
- * - общий участок всех КГтп совпадает и визуально
- *   выглядит как один кабель.
- *
- * Выход из шкафа:
- * - автоматически выбирается ближайшая грань;
- * - определяется относительно первой точки трассы;
- * - работает при любом повороте опоры.
- * ============================================================
- */
+export function cameraCoverageDefaults(
+  kind: CameraKind,
+) {
+  return kind === "detector"
+    ? { width: 76, depth: 150 }
+    : kind === "radar"
+      ? { width: 94, depth: 190 }
+      : { width: 128, depth: 210 };
+}
 
-
-/*
- * Расстояние между соседними UTP.
- */
-const UTP_LANE_GAP = 3.2;
-
-
-/*
- * Первая UTP-дорожка относительно центра балки.
- */
-const UTP_FIRST_LANE = 4;
-
-
-/*
- * Размер шкафа в SVG 28×28.
- */
-const CABINET_HALF_SIZE = 14;
-
-
-/*
- * Небольшой прямой участок после выхода из шкафа.
- */
-const CABINET_EXIT_LENGTH = 8;
-
-
-/*
- * Положение общего узла КГтп вдоль балки.
- *
- * 18 означает: узел находится в 18 условных единицах
- * от вертикальной стойки опоры.
- */
-const CONTROL_HUB_REACH = 18;
-
-
-/*
- * Небольшое смещение общей магистрали КГтп
- * относительно оси балки.
- *
- * 0 = строго по центру балки.
- *
- * Можно поставить, например, 2 или -2,
- * если нужно визуально сдвинуть линию.
- */
-const CONTROL_TRUNK_OFFSET = 0;
-
-
-/*
- * Преобразование мировой точки SVG
- * в локальные координаты опоры.
- */
-function supportWorldToLocalPoint(
+export function supportCameraCableConnectionPoint(
+  camera: SupportCamera,
   support: Support,
-  point: Point,
+  kind: CameraCableKind,
 ): Point {
-  const angle =
-    support.rotation *
-    Math.PI /
-    180;
-
-  const dx =
-    point.x -
-    support.x;
-
-  const dy =
-    point.y -
-    support.y;
+  const mount = supportCameraMountPosition(camera, support);
+  const side = camera.side === "a" ? -1 : 1;
+  const lateralAngle = (support.rotation + camera.rotation) * Math.PI / 180;
+  const forwardAngle = lateralAngle + side * Math.PI / 2;
+  /*
+   * Оба ввода находятся на задней стенке камеры, рядом с
+   * кронштейном. Они разнесены поперёк корпуса, поэтому UTP и
+   * управляющий кабель больше не сходятся в одной точке и не
+   * проходят поверх объектива.
+   */
+  const portOffset = kind === "utp" ? -4.5 : 4.5;
 
   return {
-    x:
-      dx * Math.cos(angle) +
-      dy * Math.sin(angle),
-
-    y:
-      -dx * Math.sin(angle) +
-      dy * Math.cos(angle),
+    x: mount.x - Math.cos(forwardAngle) * 3 + Math.cos(lateralAngle) * portOffset,
+    y: mount.y - Math.sin(forwardAngle) * 3 + Math.sin(lateralAngle) * portOffset,
   };
 }
 
-
-/*
- * Удаляем одинаковые соседние точки маршрута.
- */
-function compactRoutePoints(
-  points: Point[],
-): Point[] {
+function compactRoutePoints(points: Point[]): Point[] {
   const result: Point[] = [];
 
   for (const point of points) {
-    const previous =
-      result[
-        result.length - 1
-      ];
+    const previous = result[result.length - 1];
 
     if (
       !previous ||
@@ -613,162 +520,35 @@ function compactRoutePoints(
   return result;
 }
 
-
-/*
- * Информация о выбранной стороне шкафа.
- */
-interface CabinetConnection {
-  point: Point;
-
-  localPoint: Point;
-
-  /*
-   * Нормаль выбранной стороны шкафа.
-   *
-   * Например:
-   *
-   * справа  = { x: 1,  y: 0 }
-   * слева   = { x: -1, y: 0 }
-   * снизу   = { x: 0,  y: 1 }
-   * сверху  = { x: 0,  y: -1 }
-   */
-  outwardLocal: Point;
-}
-
-
-/*
- * Автоматически выбираем сторону шкафа,
- * которая находится ближе всего к точке toward.
+/* ============================================================
+ * КАБЕЛИ ШКАФ -> КАМЕРЫ
  *
- * ВАЖНО:
+ * Этот блок возвращён к прежней механике:
  *
- * Здесь нет фиксированного "право", "лево",
- * "верх" или "низ".
+ * UTP:
+ * - отдельная линия к каждой камере;
+ * - отдельные параллельные дорожки вдоль консоли.
  *
- * Если балка находится справа от ШУ —
- * выйдем справа.
+ * КГтп:
+ * - общий магистральный участок;
+ * - затем ответвление к конкретной камере.
  *
- * Если сверху —
- * выйдем сверху.
- *
- * Если снизу —
- * снизу.
- *
- * И так далее.
- */
-function supportCabinetConnection(
-  cabinet: SupportCabinet,
-  support: Support,
-  toward: Point,
-): CabinetConnection {
-  const center =
-    supportCabinetPosition(
-      cabinet,
-      support,
-    );
+ * Межопорная логика ниже на этот блок не влияет.
+ * ============================================================ */
 
-  const centerLocal =
-    supportWorldToLocalPoint(
-      support,
-      center,
-    );
+const UTP_LANE_GAP = 3.2;
+const UTP_FIRST_LANE = 4;
 
-  const towardLocal =
-    supportWorldToLocalPoint(
-      support,
-      toward,
-    );
+const CABINET_HALF_SIZE = 14;
+const CABINET_EXIT_LENGTH = 8;
 
-  const dx =
-    towardLocal.x -
-    centerLocal.x;
+const CONTROL_HUB_REACH = 18;
+const CONTROL_TRUNK_OFFSET = 0;
 
-  const dy =
-    towardLocal.y -
-    centerLocal.y;
-
-  let localPoint: Point;
-
-  let outwardLocal: Point;
-
-
-  /*
-   * Целевая точка находится преимущественно
-   * справа или слева.
-   */
-  if (
-    Math.abs(dx) >=
-    Math.abs(dy)
-  ) {
-    const direction =
-      dx >= 0
-        ? 1
-        : -1;
-
-    localPoint = {
-      x:
-        centerLocal.x +
-        direction *
-          CABINET_HALF_SIZE,
-
-      y:
-        centerLocal.y,
-    };
-
-    outwardLocal = {
-      x: direction,
-      y: 0,
-    };
-  }
-
-  /*
-   * Целевая точка находится преимущественно
-   * сверху или снизу.
-   */
-  else {
-    const direction =
-      dy >= 0
-        ? 1
-        : -1;
-
-    localPoint = {
-      x:
-        centerLocal.x,
-
-      y:
-        centerLocal.y +
-        direction *
-          CABINET_HALF_SIZE,
-    };
-
-    outwardLocal = {
-      x: 0,
-      y: direction,
-    };
-  }
-
-  return {
-    localPoint,
-
-    outwardLocal,
-
-    point:
-      supportLocalPoint(
-        support,
-        localPoint,
-      ),
-  };
-}
-
-
-/*
- * Расстояние конкретной камеры
- * вдоль консоли.
- */
 function cameraReach(
   camera: SupportCamera,
   support: Support,
-): number {
+) {
   const count =
     camera.side === "a"
       ? support.cameraSlotsA
@@ -782,239 +562,383 @@ function cameraReach(
   );
 }
 
-
-/*
- * Камеры одной стороны сортируем
- * от основания балки к её концу.
- */
-function camerasOnSideOrdered(
+function orderedCamerasOnSide(
   support: Support,
   cameras: SupportCamera[],
   side: CameraMountSide,
-): SupportCamera[] {
+) {
   return cameras
     .filter(
       (camera) =>
-        camera.supportId ===
-          support.id &&
-        camera.side ===
-          side,
+        camera.supportId === support.id &&
+        camera.side === side,
     )
-    .sort(
-      (a, b) => {
-        const reachDifference =
-          cameraReach(
-            a,
-            support,
-          ) -
-          cameraReach(
-            b,
-            support,
-          );
+    .sort((left, right) => {
+      const reachDifference =
+        cameraReach(left, support) -
+        cameraReach(right, support);
 
-        if (
-          Math.abs(
-            reachDifference,
-          ) > 0.001
-        ) {
-          return reachDifference;
-        }
+      if (Math.abs(reachDifference) > 0.001) {
+        return reachDifference;
+      }
 
-        return (
-          a.slot -
-          b.slot
-        );
-      },
-    );
+      if (left.slot !== right.slot) {
+        return left.slot - right.slot;
+      }
+
+      return left.id.localeCompare(right.id);
+    });
 }
 
+interface CabinetConnection {
+  point: Point;
+  localPoint: Point;
+  outwardLocal: Point;
+}
 
-/*
- * UTP получает отдельную дорожку.
- *
- * Верхняя сторона балки:
- *
- *   UTP1 = -4
- *   UTP2 = -7.2
- *   UTP3 = -10.4
- *
- * Нижняя:
- *
- *   UTP1 = +4
- *   UTP2 = +7.2
- *   UTP3 = +10.4
- */
+function supportCabinetConnection(
+  cabinet: SupportCabinet,
+  support: Support,
+  toward: Point,
+  portShift = 0,
+): CabinetConnection {
+  const center = supportCabinetPosition(
+    cabinet,
+    support,
+  );
+
+  const centerLocal = supportWorldToLocalPoint(
+    support,
+    center,
+  );
+
+  const towardLocal = supportWorldToLocalPoint(
+    support,
+    toward,
+  );
+
+  const dx = towardLocal.x - centerLocal.x;
+  const dy = towardLocal.y - centerLocal.y;
+
+  const shift = Math.max(
+    -10,
+    Math.min(10, portShift),
+  );
+
+  let localPoint: Point;
+  let outwardLocal: Point;
+
+  if (Math.abs(dx) >= Math.abs(dy)) {
+    const direction = dx >= 0 ? 1 : -1;
+
+    localPoint = {
+      x:
+        centerLocal.x +
+        direction * CABINET_HALF_SIZE,
+
+      y:
+        centerLocal.y + shift,
+    };
+
+    outwardLocal = {
+      x: direction,
+      y: 0,
+    };
+  } else {
+    const direction = dy >= 0 ? 1 : -1;
+
+    localPoint = {
+      x: centerLocal.x + shift,
+
+      y:
+        centerLocal.y +
+        direction * CABINET_HALF_SIZE,
+    };
+
+    outwardLocal = {
+      x: 0,
+      y: direction,
+    };
+  }
+
+  return {
+    localPoint,
+    outwardLocal,
+
+    point: supportLocalPoint(
+      support,
+      localPoint,
+    ),
+  };
+}
+
 function utpLaneOffset(
   target: SupportCamera,
   support: Support,
   cameras: SupportCamera[],
-): number {
-  const ordered =
-    camerasOnSideOrdered(
-      support,
-      cameras,
-      target.side,
-    );
+) {
+  const ordered = orderedCamerasOnSide(
+    support,
+    cameras,
+    target.side,
+  );
 
-  const index =
-    Math.max(
-      0,
-      ordered.findIndex(
-        (camera) =>
-          camera.id ===
-          target.id,
-      ),
-    );
+  const index = Math.max(
+    0,
+    ordered.findIndex(
+      (camera) => camera.id === target.id,
+    ),
+  );
 
   const distance =
     UTP_FIRST_LANE +
-    index *
-      UTP_LANE_GAP;
+    index * UTP_LANE_GAP;
 
   return target.side === "a"
     ? -distance
     : distance;
 }
 
+function utpRouteChannel(
+  target: SupportCamera,
+  support: Support,
+  cameras: SupportCamera[],
+) {
+  const routes = cameras
+    .filter(
+      (camera) => camera.supportId === support.id,
+    )
+    .map((camera) => ({
+      camera,
+      laneOffset: utpLaneOffset(
+        camera,
+        support,
+        cameras,
+      ),
+    }))
+    .sort((left, right) =>
+      left.laneOffset - right.laneOffset ||
+      cameraReach(left.camera, support) -
+        cameraReach(right.camera, support) ||
+      left.camera.id.localeCompare(right.camera.id),
+    );
 
-/*
- * Общий узел КГтп.
- *
- * Он располагается непосредственно
- * на балке.
- *
- * Все управляющие кабели используют
- * ОДНУ И ТУ ЖЕ точку.
- */
+  const index = Math.max(
+    0,
+    routes.findIndex(
+      (route) => route.camera.id === target.id,
+    ),
+  );
+
+  const count = Math.max(1, routes.length);
+
+  return {
+    index,
+    laneOffset: utpLaneOffset(
+      target,
+      support,
+      cameras,
+    ),
+    portShift:
+      count <= 1
+        ? 0
+        : -9 + 18 * index / (count - 1),
+  };
+}
+
 function controlHubLocalPoint(
   support: Support,
 ): Point {
-  /*
-   * Не позволяем узлу уйти за конец балки.
-   */
-  const reach =
-    Math.max(
+  return {
+    x: Math.max(
       8,
       Math.min(
-        support.consoleLength -
-          8,
-
+        support.consoleLength - 8,
         CONTROL_HUB_REACH,
       ),
-    );
-
-  return {
-    x: reach,
+    ),
     y: CONTROL_TRUNK_OFFSET,
   };
 }
 
-
-/*
- * Строит маршрут от шкафа
- * к заданной локальной точке на опоре.
- *
- * Повороты только под 90 градусов.
- */
 function routeCabinetToLocalPoint(
   cabinet: SupportCabinet,
   support: Support,
   targetLocal: Point,
+  portShift = 0,
+  routeTrack = 0,
 ): Point[] {
-  const targetWorld =
-    supportLocalPoint(
-      support,
-      targetLocal,
-    );
+  const targetWorld = supportLocalPoint(
+    support,
+    targetLocal,
+  );
 
-  const connection =
-    supportCabinetConnection(
-      cabinet,
-      support,
-      targetWorld,
-    );
+  const connection = supportCabinetConnection(
+    cabinet,
+    support,
+    targetWorld,
+    portShift,
+  );
 
-  const start =
-    connection.localPoint;
+  const start = connection.localPoint;
+  const trackSeparation =
+    Math.min(7, Math.max(0, routeTrack)) *
+    UTP_LANE_GAP;
 
   const exit: Point = {
     x:
       start.x +
       connection.outwardLocal.x *
-        CABINET_EXIT_LENGTH,
+        (CABINET_EXIT_LENGTH + trackSeparation),
 
     y:
       start.y +
       connection.outwardLocal.y *
-        CABINET_EXIT_LENGTH,
+        (CABINET_EXIT_LENGTH + trackSeparation),
   };
 
+  const route: Point[] = [start, exit];
 
-  const route: Point[] = [
-    start,
-    exit,
-  ];
-
-
-  /*
-   * Вышли через левую/правую стенку.
-   *
-   * Сначала идём горизонтально из шкафа,
-   * потом меняем Y,
-   * затем идём к цели.
-   */
-  if (
-    Math.abs(
-      connection.outwardLocal.x,
-    ) > 0.5
-  ) {
+  if (Math.abs(connection.outwardLocal.x) > 0.5) {
     route.push({
       x: exit.x,
       y: targetLocal.y,
     });
+  } else {
+    const approachX = Math.min(
+      targetLocal.x - 8,
+      -8 - trackSeparation,
+    );
 
-    route.push({
-      x: targetLocal.x,
-      y: targetLocal.y,
-    });
+    route.push(
+      {
+        x: approachX,
+        y: exit.y,
+      },
+      {
+        x: approachX,
+        y: targetLocal.y,
+      },
+    );
   }
 
-  /*
-   * Вышли сверху/снизу.
-   *
-   * Сначала вертикально,
-   * потом меняем X.
-   */
-  else {
-    route.push({
-      x: targetLocal.x,
-      y: exit.y,
-    });
-
-    route.push({
-      x: targetLocal.x,
-      y: targetLocal.y,
-    });
-  }
-
+  route.push(targetLocal);
 
   return compactRoutePoints(
-    route.map(
-      (point) =>
-        supportLocalPoint(
-          support,
-          point,
-        ),
+    route.map((point) =>
+      supportLocalPoint(
+        support,
+        point,
+      ),
     ),
   );
 }
 
+function automaticUtpRoutePoints(
+  _cable: CameraCableRoute,
+  source: SupportCabinet,
+  support: Support,
+  target: SupportCamera,
+  cameras: SupportCamera[],
+): Point[] {
+  const end = supportCameraCableConnectionPoint(
+    target,
+    support,
+    "utp",
+  );
 
-/*
- * ============================================================
- * ГЛАВНАЯ ФУНКЦИЯ
- * ============================================================
- */
+  const reach = cameraReach(
+    target,
+    support,
+  );
+
+  const channel = utpRouteChannel(
+    target,
+    support,
+    cameras,
+  );
+
+  const cameraLanePoint =
+    supportLocalPoint(
+      support,
+      {
+        x: reach,
+        y: channel.laneOffset,
+      },
+    );
+
+  const cabinetRoute =
+    routeCabinetToLocalPoint(
+      source,
+      support,
+      {
+        x: 0,
+        y: channel.laneOffset,
+      },
+      channel.portShift,
+      channel.index,
+    );
+
+  /*
+   * Старая аккуратная механика:
+   *
+   * шкаф -> короткий выход -> своя дорожка у основания ->
+   * вдоль консоли -> камера
+   */
+  return compactRoutePoints([
+    ...cabinetRoute,
+    cameraLanePoint,
+    end,
+  ]);
+}
+
+function automaticControlRoutePoints(
+  _cable: CameraCableRoute,
+  source: SupportCabinet,
+  support: Support,
+  target: SupportCamera,
+  _cameras: SupportCamera[],
+): Point[] {
+  const end = supportCameraCableConnectionPoint(
+    target,
+    support,
+    "control",
+  );
+
+  const hubLocal = controlHubLocalPoint(
+    support,
+  );
+
+  const commonTrunk = routeCabinetToLocalPoint(
+    source,
+    support,
+    hubLocal,
+  );
+
+  const cameraLocal = supportWorldToLocalPoint(
+    support,
+    end,
+  );
+
+  const branchAlongBeam = supportLocalPoint(
+    support,
+    {
+      x: cameraLocal.x,
+      y: hubLocal.y,
+    },
+  );
+
+  /*
+   * После общего hub каждая линия
+   * уходит к своей камере.
+   */
+  return compactRoutePoints([
+    ...commonTrunk,
+    branchAlongBeam,
+    end,
+  ]);
+}
+
 export function cameraCableRoutePoints(
   cable: CameraCableRoute,
   supports: Support[],
@@ -1024,23 +948,20 @@ export function cameraCableRoutePoints(
   const source =
     cabinets.find(
       (cabinet) =>
-        cabinet.id ===
-        cable.sourceCabinetId,
+        cabinet.id === cable.sourceCabinetId,
     );
 
   const target =
     cameras.find(
       (camera) =>
-        camera.id ===
-        cable.targetCameraId,
+        camera.id === cable.targetCameraId,
     );
 
   const sourceSupport =
     source
       ? supports.find(
           (support) =>
-            support.id ===
-            source.supportId,
+            support.id === source.supportId,
         )
       : undefined;
 
@@ -1048,11 +969,9 @@ export function cameraCableRoutePoints(
     target
       ? supports.find(
           (support) =>
-            support.id ===
-            target.supportId,
+            support.id === target.supportId,
         )
       : undefined;
-
 
   if (
     !source ||
@@ -1063,23 +982,17 @@ export function cameraCableRoutePoints(
     return [];
   }
 
-
-  const end =
-    supportCameraMountPosition(
-      target,
-      targetSupport,
-    );
-
+  const end = supportCameraCableConnectionPoint(
+    target,
+    targetSupport,
+    cable.kind,
+  );
 
   /*
-   * ========================================================
-   * РУЧНАЯ ПРОКЛАДКА
-   * ========================================================
+   * Ручной режим не меняем:
+   * ручные точки являются внутренними точками трассы.
    */
-  if (
-    cable.routing ===
-    "manual"
-  ) {
+  if (cable.routing === "manual") {
     const toward =
       cable.points[0] ??
       end;
@@ -1098,13 +1011,10 @@ export function cameraCableRoutePoints(
     ]);
   }
 
-
   /*
-   * ========================================================
-   * КАБЕЛЬ МЕЖДУ РАЗНЫМИ ОПОРАМИ
-   * ========================================================
-   *
-   * Оставляем резервный простой сценарий.
+   * Если шкаф и камера по какой-то причине
+   * находятся на разных опорах, используем
+   * безопасный прямой переход через центры опор.
    */
   if (
     sourceSupport.id !==
@@ -1137,246 +1047,525 @@ export function cameraCableRoutePoints(
     ]);
   }
 
-
-  /*
-   * ========================================================
-   * UTP
-   * ========================================================
-   *
-   * У каждой камеры свой отдельный UTP.
-   */
-  if (
-    cable.kind ===
-    "utp"
-  ) {
-    const reach =
-      cameraReach(
-        target,
-        targetSupport,
-      );
-
-    const laneOffset =
-      utpLaneOffset(
-        target,
-        targetSupport,
-        cameras,
-      );
-
-
-    /*
-     * Точка, в которую должна прийти
-     * трасса от шкафа перед движением
-     * вдоль балки.
-     */
-    const trunkStartLocal: Point = {
-      x: 0,
-      y: laneOffset,
-    };
-
-
-    /*
-     * От шкафа до основания
-     * конкретной UTP-дорожки.
-     *
-     * Сторона ШУ будет выбрана
-     * автоматически.
-     */
-    const cabinetRoute =
-      routeCabinetToLocalPoint(
-        source,
-        targetSupport,
-        trunkStartLocal,
-      );
-
-
-    /*
-     * Основная параллельная трасса.
-     */
-    const trunkEnd =
-      supportLocalPoint(
-        targetSupport,
-        {
-          x: reach,
-          y: laneOffset,
-        },
-      );
-
-
-    /*
-     * Короткий отвод от трассы
-     * непосредственно к камере.
-     */
-    return compactRoutePoints([
-      ...cabinetRoute,
-      trunkEnd,
-      end,
-    ]);
-  }
-
-
-  /*
-   * ========================================================
-   * КГтп / CONTROL
-   * ========================================================
-   *
-   * ВСЕ управляющие кабели сначала идут
-   * по ОДНОЙ общей магистрали:
-   *
-   *
-   *      ШУ ================= ●
-   *                           │
-   *                     общий узел
-   *
-   *
-   * Затем каждый объект имеет только
-   * свою ветку от общей точки до камеры.
-   *
-   * Поскольку шкаф → узел имеет полностью
-   * одинаковые координаты для всех control,
-   * SVG нарисует линии друг поверх друга,
-   * и визуально это будет ОДНА магистраль.
-   */
-  const hubLocal =
-    controlHubLocalPoint(
-      targetSupport,
-    );
-
-
-  /*
-   * Один и тот же путь
-   * шкаф → общий узел.
-   */
-  const commonTrunk =
-    routeCabinetToLocalPoint(
+  if (cable.kind === "control") {
+    return automaticControlRoutePoints(
+      cable,
       source,
       targetSupport,
-      hubLocal,
+      target,
+      cameras,
+    );
+  }
+
+  return automaticUtpRoutePoints(
+    cable,
+    source,
+    targetSupport,
+    target,
+    cameras,
+  );
+}
+
+/* ============================================================
+ * МЕЖОПОРНЫЕ КАБЕЛИ И ПОДКЛЮЧЕНИЕ К ШКАФАМ
+ *
+ * Главная идея:
+ *
+ * 1. Межопорная линия остаётся отдельной линией столб -> столб.
+ * 2. В шкаф заводятся ТОЛЬКО явно назначенные кабели.
+ * 3. От столба к шкафу максимум четыре фиксированные дорожки.
+ * 4. У столба дорожки начинаются в фиксированных точках.
+ * 5. В шкаф дорожки входят в разных точках.
+ * 6. Никаких диагональных "вееров" через центр шкафа.
+ * ============================================================ */
+
+export interface InterSupportCableGeometry {
+  externalPoints: Point[];
+  startTail: Point[];
+  endTail: Point[];
+}
+
+const INTER_SUPPORT_ENTRY_OFFSETS =
+  [-8, -2.6, 2.6, 8] as const;
+
+const INTER_SUPPORT_CABINET_HALF_SIZE = 14;
+
+function cableCabinetIdAtSupport(
+  _cable: CableRoute,
+  _supportId: string,
+  _cabinets: SupportCabinet[],
+): string | null {
+  return null;
+}
+
+function interSupportCabinetForEndpoint(
+  cable: CableRoute,
+  endpoint: "from" | "to",
+  cabinets: SupportCabinet[],
+): SupportCabinet | null {
+  const supportId =
+    endpoint === "from"
+      ? cable.fromSupportId
+      : cable.toSupportId;
+
+  const cabinetId =
+    endpoint === "from"
+      ? cable.fromCabinetId
+      : cable.toCabinetId;
+
+  if (typeof cabinetId !== "string") {
+    return null;
+  }
+
+  return (
+    cabinets.find(
+      (cabinet) =>
+        cabinet.id === cabinetId &&
+        cabinet.supportId === supportId,
+    ) ?? null
+  );
+}
+
+function interSupportTrackIndex(
+  cable: CableRoute,
+  supportId: string,
+  cabinetId: string,
+  allCables: CableRoute[],
+  cabinets: SupportCabinet[],
+): number {
+  const connected =
+    allCables
+      .filter(
+        (candidate) =>
+          (
+            candidate.fromSupportId === supportId ||
+            candidate.toSupportId === supportId
+          ) &&
+          cableCabinetIdAtSupport(
+            candidate,
+            supportId,
+            cabinets,
+          ) === cabinetId,
+      )
+      .sort(
+        (left, right) =>
+          left.id.localeCompare(right.id),
+      );
+
+  const index =
+    connected.findIndex(
+      (candidate) =>
+        candidate.id === cable.id,
     );
 
+  return Math.max(
+    0,
+    Math.min(
+      3,
+      index < 0 ? 0 : index,
+    ),
+  );
+}
+
+function interSupportPoleTrackIndex(
+  cable: CableRoute,
+  supportId: string,
+  allCables: CableRoute[],
+  cabinets: SupportCabinet[],
+): number {
+  const connected = allCables
+    .filter(
+      (candidate) =>
+        (candidate.fromSupportId === supportId ||
+          candidate.toSupportId === supportId) &&
+        cableCabinetIdAtSupport(
+          candidate,
+          supportId,
+          cabinets,
+        ) === null,
+    )
+    .sort((left, right) => left.id.localeCompare(right.id));
+
+  const index = connected.findIndex(
+    (candidate) => candidate.id === cable.id,
+  );
+
+  return Math.max(0, Math.min(3, index < 0 ? 0 : index));
+}
+
+function supportEntryPointToward(
+  support: Support,
+  toward: Point,
+  trackIndex: number,
+): Point {
+  const dx = toward.x - support.x;
+  const dy = toward.y - support.y;
+  const offset = INTER_SUPPORT_ENTRY_OFFSETS[trackIndex];
+
+  /* Четыре точки находятся внутри символа опоры. */
+  if (Math.abs(dx) >= Math.abs(dy)) {
+    return {
+      x: support.x,
+      y: support.y + offset,
+    };
+  }
+
+  return {
+    x: support.x + offset,
+    y: support.y,
+  };
+}
+
+function supportApproachPointToward(
+  support: Support,
+  toward: Point,
+  trackIndex: number,
+): Point {
+  const dx = toward.x - support.x;
+  const dy = toward.y - support.y;
+  const offset = INTER_SUPPORT_ENTRY_OFFSETS[trackIndex];
+  const distance = 36;
+
+  if (Math.abs(dx) >= Math.abs(dy)) {
+    return {
+      x: support.x + (dx >= 0 ? distance : -distance),
+      y: support.y + offset,
+    };
+  }
+
+  return {
+    x: support.x + offset,
+    y: support.y + (dy >= 0 ? distance : -distance),
+  };
+}
+
+function cabinetBrokenEntryRoute(
+  start: Point,
+  entry: Point,
+  cabinet: SupportCabinet,
+  support: Support,
+  trackIndex: number,
+): Point[] {
+  const center = supportCabinetPosition(cabinet, support);
+  const dx = entry.x - center.x;
+  const dy = entry.y - center.y;
+  const extension = 10 + trackIndex * 2.5;
+  const outside = {
+    x: entry.x + (Math.abs(dx) >= Math.abs(dy) ? Math.sign(dx || 1) * extension : 0),
+    y: entry.y + (Math.abs(dy) > Math.abs(dx) ? Math.sign(dy || 1) * extension : 0),
+  };
+
+  const route = Math.abs(dx) >= Math.abs(dy)
+    ? [
+        start,
+        { x: start.x, y: outside.y },
+        outside,
+        entry,
+      ]
+    : [
+        start,
+        { x: outside.x, y: start.y },
+        outside,
+        entry,
+      ];
+
+  return compactRoutePoints(route);
+}
+
+function cabinetEntryPointToward(
+  cabinet: SupportCabinet,
+  support: Support,
+  toward: Point,
+  trackIndex: number,
+): Point {
+  const cabinetCenter =
+    supportCabinetPosition(
+      cabinet,
+      support,
+    );
+
+  const dx =
+    toward.x -
+    cabinetCenter.x;
+
+  const dy =
+    toward.y -
+    cabinetCenter.y;
+
+  const entryOffset =
+    INTER_SUPPORT_ENTRY_OFFSETS[
+      trackIndex
+    ];
+
+  /* На выбранной грани предусмотрены четыре разнесённых ввода. */
+  if (
+    Math.abs(dx) >=
+    Math.abs(dy)
+  ) {
+    return {
+      x:
+        cabinetCenter.x +
+        (
+          dx >= 0
+            ? INTER_SUPPORT_CABINET_HALF_SIZE
+            : -INTER_SUPPORT_CABINET_HALF_SIZE
+        ),
+
+      y:
+        cabinetCenter.y +
+        entryOffset,
+    };
+  }
+
+  return {
+    x:
+      cabinetCenter.x +
+      entryOffset,
+
+    y:
+      cabinetCenter.y +
+      (
+        dy >= 0
+          ? INTER_SUPPORT_CABINET_HALF_SIZE
+          : -INTER_SUPPORT_CABINET_HALF_SIZE
+      ),
+  };
+}
+
+function cameraCableExitDirection(
+  cabinet: SupportCabinet,
+  support: Support,
+  supports: Support[],
+  cabinets: SupportCabinet[],
+  cameras: SupportCamera[],
+  cameraCables: CameraCableRoute[],
+): Point | null {
+  const center = supportCabinetPosition(cabinet, support);
+
+  const directions = cameraCables
+    .filter((cable) => cable.sourceCabinetId === cabinet.id)
+    .map((cable) =>
+      cameraCableRoutePoints(
+        cable,
+        supports,
+        cabinets,
+        cameras,
+      )[0],
+    )
+    .filter((point): point is Point => Boolean(point))
+    .map((point) => ({
+      x: point.x - center.x,
+      y: point.y - center.y,
+    }));
+
+  if (!directions.length) {
+    return null;
+  }
+
+  const sum = directions.reduce(
+    (result, direction) => ({
+      x: result.x + direction.x,
+      y: result.y + direction.y,
+    }),
+    { x: 0, y: 0 },
+  );
+
+  return Math.hypot(sum.x, sum.y) > 0.01
+    ? sum
+    : directions[0];
+}
+
+function interSupportCabinetEntryPoint(
+  cable: CableRoute,
+  support: Support,
+  cabinet: SupportCabinet,
+  approachPoint: Point,
+  supports: Support[],
+  allCables: CableRoute[],
+  cabinets: SupportCabinet[],
+  cameras: SupportCamera[],
+  cameraCables: CameraCableRoute[],
+): Point {
+  const cabinetCenter = supportCabinetPosition(cabinet, support);
+
+  const trackIndex =
+    interSupportTrackIndex(
+      cable,
+      support.id,
+      cabinet.id,
+      allCables,
+      cabinets,
+    );
+
+  const cameraExit = cameraCableExitDirection(
+    cabinet,
+    support,
+    supports,
+    cabinets,
+    cameras,
+    cameraCables,
+  );
 
   /*
-   * Координаты камеры в локальной системе.
+   * Если из шкафа уже выходят кабели к камерам, межопорный
+   * кабель входит через противоположную грань. Без камер
+   * используется грань, обращённая к подходящей трассе.
    */
-  const cameraLocal =
-    supportWorldToLocalPoint(
-      targetSupport,
-      end,
+  const toward = cameraExit
+    ? {
+        x: cabinetCenter.x - cameraExit.x,
+        y: cabinetCenter.y - cameraExit.y,
+      }
+    : approachPoint;
+
+  return cabinetEntryPointToward(
+    cabinet,
+    support,
+    toward,
+    trackIndex,
+  );
+}
+
+export function interSupportCableGeometry(
+  cable: CableRoute,
+  supports: Support[],
+  cabinets: SupportCabinet[],
+  cameras: SupportCamera[] = [],
+  allCables: CableRoute[] = [],
+  cameraCables: CameraCableRoute[] = [],
+): InterSupportCableGeometry {
+  const fromSupport =
+    supports.find(
+      (support) =>
+        support.id === cable.fromSupportId,
     );
 
+  const toSupport =
+    supports.find(
+      (support) =>
+        support.id === cable.toSupportId,
+    );
+
+  if (
+    !fromSupport ||
+    !toSupport
+  ) {
+    return {
+      externalPoints: [],
+      startTail: [],
+      endTail: [],
+    };
+  }
+
+  const fromReference =
+    cable.points[0] ??
+    { x: toSupport.x, y: toSupport.y };
+
+  const toReference =
+    cable.points[cable.points.length - 1] ??
+    { x: fromSupport.x, y: fromSupport.y };
+
+  const fromTrackIndex = interSupportPoleTrackIndex(
+    cable,
+    fromSupport.id,
+    allCables,
+    cabinets,
+  );
+
+  const toTrackIndex = interSupportPoleTrackIndex(
+    cable,
+    toSupport.id,
+    allCables,
+    cabinets,
+  );
+
+  const fromPoint = supportEntryPointToward(
+    fromSupport,
+    fromReference,
+    fromTrackIndex,
+  );
+
+  const toPoint = supportEntryPointToward(
+    toSupport,
+    toReference,
+    toTrackIndex,
+  );
 
   /*
-   * --------------------------------------------------------
-   * Ответвление от общего узла.
-   * --------------------------------------------------------
-   *
-   * Из узла сначала идём вдоль балки
-   * до X камеры,
-   *
-   * затем поворачиваем непосредственно
-   * к камере.
-   *
-   *
-   *       ●────────────┐
-   *                    │
-   *                  камера
+   * Межопорная линия всегда заканчивается внутри двух опор.
+   * Шкафы не участвуют в этой геометрии.
    */
-  const branchAlongBeam =
-    supportLocalPoint(
-      targetSupport,
-      {
-        x: cameraLocal.x,
-        y: hubLocal.y,
-      },
-    );
-
-
-  return compactRoutePoints([
-    ...commonTrunk,
-
-    branchAlongBeam,
-
-    end,
+  const externalPoints = compactRoutePoints([
+    fromPoint,
+    ...cable.points,
+    toPoint,
   ]);
+
+  return {
+    externalPoints,
+    startTail: [],
+    endTail: [],
+  };
 }
 
+export function interSupportCableRoutePoints(
+  cable: CableRoute,
+  supports: Support[],
+  cabinets: SupportCabinet[],
+  cameras: SupportCamera[] = [],
+  allCables: CableRoute[] = [],
+  cameraCables: CameraCableRoute[] = [],
+): Point[] {
+  const geometry =
+    interSupportCableGeometry(
+      cable,
+      supports,
+      cabinets,
+      cameras,
+      allCables,
+      cameraCables,
+    );
 
-export const CABINET_DEFINITIONS: Array<{
-  id: CabinetKind;
-  name: string;
-  short: string;
-  description: string;
-}> = [
-  {
-    id: "control-cabinet",
-    name: "Шкаф управления",
-    short: "ШУ",
-    description: "Синий диагональный шкаф из монтажных схем",
-  },
-  {
-    id: "power-entry",
-    name: "Точка подключения питания",
-    short: "ТП",
-    description: "Красно-белый ввод электропитания",
-  },
-  {
-    id: "distribution-panel",
-    name: "Дополнительный электрощит",
-    short: "ЭЩ",
-    description: "Оранжево-белый распределительный щит",
-  },
-  {
-    id: "phoenix-node",
-    name: "Узел коммутации «Феникс»",
-    short: "Ф",
-    description: "Жёлтый узел коммутации оборудования",
-  },
-  {
-    id: "signal-computer",
-    name: "Микрокомпьютер светофора",
-    short: "МК",
-    description: "Контроллер обработки сигналов светофора",
-  },
-];
+  /*
+   * Этот массив используется для длины и старых участков UI.
+   *
+   * Для красивого отображения RoadCanvas должен рисовать
+   * externalPoints, startTail и endTail отдельными path.
+   */
+  const result: Point[] = [];
 
-export const CABLE_DEFINITIONS: Array<{
-  id: CableKind;
-  name: string;
-  color: string;
-  description: string;
-}> = [
-  {
-    id: "sip",
-    name: "СИП",
-    color: "#e63c43",
-    description: "Силовая линия",
-  },
-  {
-    id: "fiber",
-    name: "Оптический кабель",
-    color: "#13a85c",
-    description: "Линия передачи данных",
-  },
-  {
-    id: "utp",
-    name: "UTP cat.5e",
-    color: "#f1c91c",
-    description: "Сетевой кабель",
-  },
-  {
-    id: "control",
-    name: "КГтп-ХЛ 2×2,5",
-    color: "#a02aa6",
-    description: "Управляющий кабель",
-  },
-];
+  if (
+    geometry.startTail.length
+  ) {
+    result.push(
+      ...[
+        ...geometry.startTail,
+      ].reverse(),
+    );
+  }
 
-let sequence = 0;
+  if (
+    geometry.externalPoints.length
+  ) {
+    result.push(
+      ...geometry.externalPoints,
+    );
+  }
 
-export function uid(prefix: string) {
-  sequence += 1;
+  if (
+    geometry.endTail.length
+  ) {
+    result.push(
+      ...geometry.endTail,
+    );
+  }
 
-  return `${prefix}-${Date.now().toString(36)}-${sequence.toString(36)}`;
+  return compactRoutePoints(result);
 }
+
+/* ============================================================
+ * СОЗДАНИЕ ОБЪЕКТОВ
+ * ============================================================ */
 
 export function createLane(
   direction: LaneDirection = "forward",
@@ -1393,7 +1582,6 @@ export function createLane(
   return {
     id: uid("lane"),
     name: labels[kind],
-
     width:
       kind === "tram"
         ? 38
@@ -1402,11 +1590,8 @@ export function createLane(
           : kind === "median"
             ? 18
             : 42,
-
     kind,
-
     direction,
-
     turns:
       kind === "traffic" ||
       kind === "bus"
@@ -1435,32 +1620,23 @@ export function createRoadFeature(
 ): RoadFeature {
   return {
     id: uid("feature"),
-
     kind,
-
     side,
-
     innerMarking:
       kind === "lane-widening" ||
       kind === "lane-narrowing"
         ? "1.5"
         : "1.8",
-
-    innerMarkingMirrored:
-      false,
-
+    innerMarkingMirrored: false,
     at: 0.5,
-
     length:
       kind === "transit-stop"
         ? 360
         : 240,
-
     width:
       kind === "lane-narrowing"
         ? 30
         : 42,
-
     taper:
       kind === "transit-stop" ||
       kind === "empty-pocket"
@@ -1476,23 +1652,15 @@ export function createSupport(
 ): Support {
   return {
     id: uid("support"),
-
     kind,
-
-    name: ``,
-
+    name: "",
     x: point.x,
     y: point.y,
-
     rotation: 0,
-
     consoleLength: 76,
-
     cameraMountOffset: 24,
-
     cameraSlotsA: 2,
     cameraSlotsB: 2,
-
     labelOffsetX: 0,
     labelOffsetY: 40,
   };
@@ -1513,22 +1681,24 @@ export function createSupportCamera(
 
   return {
     id: uid("camera"),
-
     supportId,
-
     kind,
-
     name:
       `${definition?.prefix ?? "C"}${String(index).padStart(5, "0")}`,
-
     side,
-
     slot,
-
     rotation: 0,
-
     labelOffsetX: 0,
     labelOffsetY: 54,
+    coverageOffsetX: 0,
+    coverageOffsetY: 0,
+    ...(() => {
+      const coverage = cameraCoverageDefaults(kind);
+      return {
+        coverageWidth: coverage.width,
+        coverageDepth: coverage.depth,
+      };
+    })(),
   };
 }
 
@@ -1545,19 +1715,13 @@ export function createCabinet(
 
   return {
     id: uid("cabinet"),
-
     supportId,
-
     kind,
-
     name:
       `${definition?.short ?? "Ш"}-${index}`,
-
     angle:
       45 +
-      (index - 1) *
-        55,
-
+      (index - 1) * 55,
     distance: 54,
   };
 }
@@ -1576,22 +1740,19 @@ export function createCable(
 
   return {
     id: uid("cable"),
-
     kind,
-
     name:
       `${definition?.name ?? "Кабель"} ${index}`,
-
     fromSupportId,
-
     toSupportId,
 
+    /* По умолчанию оба конца подключаются к самим опорам. */
+    fromCabinetId: null,
+    toCabinetId: null,
+
     points: [],
-
     labelText: "",
-
     labelAt: 0.5,
-
     labelOffset: 48,
   };
 }
@@ -1605,18 +1766,12 @@ export function createCameraCable(
 ): CameraCableRoute {
   return {
     id: uid("camera-cable"),
-
     kind,
-
     name:
       `${kind === "utp" ? "UTP cat.5e" : "КГтп-ХЛ 2×2,5"} ${index}`,
-
     sourceCabinetId,
-
     targetCameraId,
-
     routing,
-
     points: [],
   };
 }
@@ -1634,13 +1789,9 @@ export function createRoad(
 
   return {
     id: uid("road"),
-
     name,
-
     points,
-
     lanes,
-
     separators: [
       createSeparator("1.2"),
       createSeparator("1.5"),
@@ -1648,9 +1799,7 @@ export function createRoad(
       createSeparator("1.5"),
       createSeparator("1.2"),
     ],
-
     features: [],
-
     crossSections: [
       {
         id: uid("cross-section"),
@@ -1658,7 +1807,6 @@ export function createRoad(
         laneWidths: {},
         transition: "smooth",
       },
-
       {
         id: uid("cross-section"),
         at: 1,
@@ -1666,9 +1814,7 @@ export function createRoad(
         transition: "smooth",
       },
     ],
-
     asphalt: "dark",
-
     curb: true,
   };
 }
@@ -1677,14 +1823,8 @@ export function createDefaultProject(): RoadProject {
   const horizontal =
     createRoad(
       [
-        {
-          x: 190,
-          y: 500,
-        },
-        {
-          x: 1410,
-          y: 500,
-        },
+        { x: 190, y: 500 },
+        { x: 1410, y: 500 },
       ],
       "Главная улица",
     );
@@ -1692,14 +1832,8 @@ export function createDefaultProject(): RoadProject {
   const vertical =
     createRoad(
       [
-        {
-          x: 800,
-          y: 110,
-        },
-        {
-          x: 800,
-          y: 890,
-        },
+        { x: 800, y: 110 },
+        { x: 800, y: 890 },
       ],
       "Поперечная улица",
     );
@@ -1717,18 +1851,13 @@ export function createDefaultProject(): RoadProject {
 
   return {
     version: 16,
-
     drivingSide: "right",
-
     id: uid("project"),
-
     name: "Новый перекрёсток",
-
     roads: [
       horizontal,
       vertical,
     ],
-
     stamps: [
       {
         id: uid("stamp"),
@@ -1738,7 +1867,6 @@ export function createDefaultProject(): RoadProject {
         rotation: 0,
         scale: 1,
       },
-
       {
         id: uid("stamp"),
         type: "1.18-straight",
@@ -1748,56 +1876,33 @@ export function createDefaultProject(): RoadProject {
         scale: 1,
       },
     ],
-
     supports: [],
-
     cameras: [],
-
     cabinets: [],
-
     cables: [],
-
     cameraCables: [],
-
     junctionSettings: [],
-
     gridSize: 20,
-
-    updatedAt:
-      new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
   };
 }
 
 export function createEmptyProject(): RoadProject {
   return {
     version: 16,
-
     drivingSide: "right",
-
     id: uid("project"),
-
     name: "Новый перекрёсток",
-
     roads: [],
-
     stamps: [],
-
     supports: [],
-
     cameras: [],
-
     cabinets: [],
-
     cables: [],
-
     cameraCables: [],
-
     junctionSettings: [],
-
     gridSize: 20,
-
-    updatedAt:
-      new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
   };
 }
 
@@ -1809,6 +1914,10 @@ export function cloneProject(
   ) as RoadProject;
 }
 
+/* ============================================================
+ * ШИРИНЫ ДОРОГ
+ * ============================================================ */
+
 function sectionLaneWidth(
   road: Road,
   section: RoadCrossSection,
@@ -1817,8 +1926,7 @@ function sectionLaneWidth(
   const lane =
     road.lanes.find(
       (candidate) =>
-        candidate.id ===
-        laneId,
+        candidate.id === laneId,
     );
 
   return Math.max(
@@ -1837,8 +1945,7 @@ export function roadLaneWidthAt(
   const lane =
     road.lanes.find(
       (candidate) =>
-        candidate.id ===
-        laneId,
+        candidate.id === laneId,
     );
 
   if (!lane) {
@@ -1850,8 +1957,7 @@ export function roadLaneWidthAt(
       ...(road.crossSections ?? []),
     ].sort(
       (first, second) =>
-        first.at -
-        second.at,
+        first.at - second.at,
     );
 
   if (!sections.length) {
@@ -1861,18 +1967,14 @@ export function roadLaneWidthAt(
   const position =
     Math.max(
       0,
-      Math.min(
-        1,
-        at,
-      ),
+      Math.min(1, at),
     );
 
   const nextIndex =
     sections.findIndex(
       (section) =>
         section.at >=
-        position -
-          0.000001,
+        position - 0.000001,
     );
 
   if (nextIndex <= 0) {
@@ -1894,9 +1996,7 @@ export function roadLaneWidthAt(
   }
 
   const previous =
-    sections[
-      nextIndex - 1
-    ];
+    sections[nextIndex - 1];
 
   const next =
     sections[nextIndex];
@@ -1904,8 +2004,7 @@ export function roadLaneWidthAt(
   const span =
     Math.max(
       0.000001,
-      next.at -
-        previous.at,
+      next.at - previous.at,
     );
 
   let ratio =
@@ -1913,15 +2012,13 @@ export function roadLaneWidthAt(
       0,
       Math.min(
         1,
-        (position -
-          previous.at) /
+        (position - previous.at) /
           span,
       ),
     );
 
   if (
-    previous.transition ===
-    "smooth"
+    previous.transition === "smooth"
   ) {
     ratio =
       ratio *
@@ -1985,23 +2082,17 @@ export function createRoadCrossSection(
   const position =
     Math.max(
       0,
-      Math.min(
-        1,
-        at,
-      ),
+      Math.min(1, at),
     );
 
   return {
     id: uid("cross-section"),
-
     at: position,
-
     laneWidths:
       Object.fromEntries(
         road.lanes.map(
           (lane) => [
             lane.id,
-
             roadLaneWidthAt(
               road,
               lane.id,
@@ -2010,7 +2101,6 @@ export function createRoadCrossSection(
           ],
         ),
       ),
-
     transition: "smooth",
   };
 }
@@ -2041,27 +2131,22 @@ export function normalizeRoad(
       road.separators[0]
     ) {
       if (
-        section.marking !==
-        "none"
+        section.marking !== "none"
       ) {
-        section.marking =
-          "1.2";
+        section.marking = "1.2";
       }
     }
 
     for (
       const section of
       road.separators[
-        road.separators.length -
-          1
+        road.separators.length - 1
       ]
     ) {
       if (
-        section.marking !==
-        "none"
+        section.marking !== "none"
       ) {
-        section.marking =
-          "1.2";
+        section.marking = "1.2";
       }
     }
   }
@@ -2077,62 +2162,45 @@ export function normalizeRoad(
       .map(
         (section) => ({
           ...section,
-
           at:
             Math.max(
               0,
               Math.min(
                 1,
-                Number(
-                  section.at,
-                ) || 0,
+                Number(section.at) || 0,
               ),
             ),
-
           laneWidths:
             section.laneWidths &&
             typeof section.laneWidths ===
               "object"
               ? section.laneWidths
               : {},
-
           transition:
-            section.transition ===
-            "linear"
+            section.transition === "linear"
               ? "linear" as const
               : "smooth" as const,
         }),
       )
       .sort(
         (first, second) =>
-          first.at -
-          second.at,
+          first.at - second.at,
       )
       .filter(
-        (
-          section,
-          index,
-          all,
-        ) =>
-          index ===
-            all.length - 1 ||
+        (section, index, all) =>
+          index === all.length - 1 ||
           Math.abs(
             section.at -
-              all[index + 1]
-                .at,
-          ) >
-            0.0001,
+              all[index + 1].at,
+          ) > 0.0001,
       );
 
   if (
     !sections.length ||
-    sections[0].at >
-      0.0001
+    sections[0].at > 0.0001
   ) {
     sections.unshift({
-      id: uid(
-        "cross-section",
-      ),
+      id: uid("cross-section"),
       at: 0,
       laneWidths: {},
       transition: "smooth",
@@ -2147,9 +2215,7 @@ export function normalizeRoad(
     ].at < 0.9999
   ) {
     sections.push({
-      id: uid(
-        "cross-section",
-      ),
+      id: uid("cross-section"),
       at: 1,
       laneWidths: {},
       transition: "smooth",
@@ -2160,9 +2226,12 @@ export function normalizeRoad(
     ].at = 1;
   }
 
-  road.crossSections =
-    sections;
+  road.crossSections = sections;
 }
+
+/* ============================================================
+ * ШАБЛОНЫ
+ * ============================================================ */
 
 export function createTemplate(
   kind:
@@ -2171,20 +2240,12 @@ export function createTemplate(
     | "tee"
     | "tram",
 ): Road[] {
-  if (
-    kind === "straight"
-  ) {
+  if (kind === "straight") {
     return [
       createRoad(
         [
-          {
-            x: 220,
-            y: 500,
-          },
-          {
-            x: 1380,
-            y: 500,
-          },
+          { x: 220, y: 500 },
+          { x: 1380, y: 500 },
         ],
         "Прямая улица",
       ),
@@ -2195,14 +2256,8 @@ export function createTemplate(
     const main =
       createRoad(
         [
-          {
-            x: 180,
-            y: 480,
-          },
-          {
-            x: 1420,
-            y: 480,
-          },
+          { x: 180, y: 480 },
+          { x: 1420, y: 480 },
         ],
         "Главная улица",
       );
@@ -2210,14 +2265,8 @@ export function createTemplate(
     const branch =
       createRoad(
         [
-          {
-            x: 800,
-            y: 900,
-          },
-          {
-            x: 800,
-            y: 480,
-          },
+          { x: 800, y: 900 },
+          { x: 800, y: 480 },
         ],
         "Примыкание",
       );
@@ -2239,20 +2288,12 @@ export function createTemplate(
     ];
   }
 
-  if (
-    kind === "tram"
-  ) {
+  if (kind === "tram") {
     const road =
       createRoad(
         [
-          {
-            x: 190,
-            y: 500,
-          },
-          {
-            x: 1410,
-            y: 500,
-          },
+          { x: 190, y: 500 },
+          { x: 1410, y: 500 },
         ],
         "Улица с трамваем",
       );
@@ -2285,14 +2326,8 @@ export function createTemplate(
   const horizontal =
     createRoad(
       [
-        {
-          x: 180,
-          y: 500,
-        },
-        {
-          x: 1420,
-          y: 500,
-        },
+        { x: 180, y: 500 },
+        { x: 1420, y: 500 },
       ],
       "Главная улица",
     );
@@ -2300,14 +2335,8 @@ export function createTemplate(
   const vertical =
     createRoad(
       [
-        {
-          x: 800,
-          y: 100,
-        },
-        {
-          x: 800,
-          y: 900,
-        },
+        { x: 800, y: 100 },
+        { x: 800, y: 900 },
       ],
       "Поперечная улица",
     );
@@ -2329,25 +2358,28 @@ export function createTemplate(
   ];
 }
 
+/* ============================================================
+ * МИГРАЦИЯ
+ * ============================================================ */
+
 export function migrateProject(
   value: unknown,
 ): RoadProject {
   const source =
-    value as Partial<RoadProject> & {
-      version?: number;
+    value as
+      Partial<RoadProject> & {
+        version?: number;
 
-      roads?: Array<
-        Road & {
-          separators: unknown[];
-        }
-      >;
-    };
+        roads?: Array<
+          Road & {
+            separators: unknown[];
+          }
+        >;
+      };
 
   if (
     !source ||
-    !Array.isArray(
-      source.roads,
-    )
+    !Array.isArray(source.roads)
   ) {
     throw new Error(
       "Некорректный файл проекта",
@@ -2360,8 +2392,7 @@ export function migrateProject(
     ) as RoadProject;
 
   for (
-    const road of
-    migrated.roads
+    const road of migrated.roads
   ) {
     road.separators =
       (
@@ -2369,8 +2400,7 @@ export function migrateProject(
       ).map(
         (separator) => {
           if (
-            typeof separator ===
-            "string"
+            typeof separator === "string"
           ) {
             return createSeparator(
               separator as LineMarkingId,
@@ -2378,51 +2408,41 @@ export function migrateProject(
           }
 
           if (
-            Array.isArray(
-              separator,
-            )
+            Array.isArray(separator)
           ) {
             return separator as MarkingSection[];
           }
 
-          return createSeparator(
-            "1.5",
-          );
+          return createSeparator("1.5");
         },
       );
 
     if (
-      (source.version ?? 1) <
-      3
+      (source.version ?? 1) < 3
     ) {
       const directional =
         road.lanes.filter(
           (lane) =>
-            lane.kind !==
-              "median" &&
-            lane.direction !==
-              "both",
+            lane.kind !== "median" &&
+            lane.direction !== "both",
         );
 
       const hasForward =
         directional.some(
           (lane) =>
-            lane.direction ===
-            "forward",
+            lane.direction === "forward",
         );
 
       const hasBackward =
         directional.some(
           (lane) =>
-            lane.direction ===
-            "backward",
+            lane.direction === "backward",
         );
 
       const firstForward =
         directional.findIndex(
           (lane) =>
-            lane.direction ===
-            "forward",
+            lane.direction === "forward",
         );
 
       const oldLeftHandOrder =
@@ -2435,29 +2455,21 @@ export function migrateProject(
           )
           .every(
             (lane) =>
-              lane.direction ===
-              "backward",
+              lane.direction === "backward",
           ) &&
         directional
-          .slice(
-            firstForward,
-          )
+          .slice(firstForward)
           .every(
             (lane) =>
-              lane.direction ===
-              "forward",
+              lane.direction === "forward",
           );
 
-      if (
-        oldLeftHandOrder
-      ) {
+      if (oldLeftHandOrder) {
         for (
-          const lane of
-          directional
+          const lane of directional
         ) {
           lane.direction =
-            lane.direction ===
-            "forward"
+            lane.direction === "forward"
               ? "backward"
               : "forward";
         }
@@ -2465,9 +2477,7 @@ export function migrateProject(
     }
 
     road.features =
-      Array.isArray(
-        road.features,
-      )
+      Array.isArray(road.features)
         ? road.features
         : [];
 
@@ -2479,14 +2489,11 @@ export function migrateProject(
         : [];
 
     for (
-      const feature of
-      road.features
+      const feature of road.features
     ) {
       const laneTransition =
-        feature.kind ===
-          "lane-widening" ||
-        feature.kind ===
-          "lane-narrowing";
+        feature.kind === "lane-widening" ||
+        feature.kind === "lane-narrowing";
 
       feature.innerMarking =
         feature.innerMarking ??
@@ -2502,30 +2509,22 @@ export function migrateProject(
         );
 
       if (
-        (source.version ??
-          1) <
-          6 &&
+        (source.version ?? 1) < 6 &&
         laneTransition &&
-        feature.innerMarking ===
-          "1.8"
+        feature.innerMarking === "1.8"
       ) {
-        feature.innerMarking =
-          "1.5";
+        feature.innerMarking = "1.5";
       }
     }
 
     for (
-      const separator of
-      road.separators
+      const separator of road.separators
     ) {
       for (
-        const section of
-        separator
+        const section of separator
       ) {
         section.mirrored =
-          Boolean(
-            section.mirrored,
-          );
+          Boolean(section.mirrored);
       }
     }
 
@@ -2533,42 +2532,30 @@ export function migrateProject(
   }
 
   migrated.version = 16;
-
-  migrated.drivingSide =
-    "right";
+  migrated.drivingSide = "right";
 
   migrated.stamps =
-    Array.isArray(
-      migrated.stamps,
-    )
+    Array.isArray(migrated.stamps)
       ? migrated.stamps
       : [];
 
   migrated.supports =
-    Array.isArray(
-      migrated.supports,
-    )
+    Array.isArray(migrated.supports)
       ? migrated.supports
       : [];
 
   migrated.cameras =
-    Array.isArray(
-      migrated.cameras,
-    )
+    Array.isArray(migrated.cameras)
       ? migrated.cameras
       : [];
 
   migrated.cabinets =
-    Array.isArray(
-      migrated.cabinets,
-    )
+    Array.isArray(migrated.cabinets)
       ? migrated.cabinets
       : [];
 
   migrated.cables =
-    Array.isArray(
-      migrated.cables,
-    )
+    Array.isArray(migrated.cables)
       ? migrated.cables
       : [];
 
@@ -2580,39 +2567,31 @@ export function migrateProject(
       : [];
 
   for (
-    const support of
-    migrated.supports
+    const support of migrated.supports
   ) {
     support.kind =
       SUPPORT_DEFINITIONS.some(
         (definition) =>
-          definition.id ===
-          support.kind,
+          definition.id === support.kind,
       )
         ? support.kind
         : "power-pole";
 
     support.rotation =
       Number.isFinite(
-        Number(
-          support.rotation,
-        ),
+        Number(support.rotation),
       )
-        ? Number(
-            support.rotation,
-          )
+        ? Number(support.rotation)
         : 0;
 
     support.name =
-    typeof support.name === "string"
-      ? support.name
-      : "Опора";
+      typeof support.name === "string"
+        ? support.name
+        : "Опора";
 
     support.consoleLength =
       Number.isFinite(
-        Number(
-          support.consoleLength,
-        ),
+        Number(support.consoleLength),
       )
         ? Math.max(
             60,
@@ -2629,14 +2608,14 @@ export function migrateProject(
       migrated.cameras
         .filter(
           (camera) =>
-            camera.supportId ===
-              support.id &&
+            camera.supportId === support.id &&
             Number.isFinite(
               Number(
                 (
-                  camera as SupportCamera & {
-                    reach?: number;
-                  }
+                  camera as
+                    SupportCamera & {
+                      reach?: number;
+                    }
                 ).reach,
               ),
             ),
@@ -2645,9 +2624,10 @@ export function migrateProject(
           (camera) =>
             Number(
               (
-                camera as SupportCamera & {
-                  reach?: number;
-                }
+                camera as
+                  SupportCamera & {
+                    reach?: number;
+                  }
               ).reach,
             ),
         );
@@ -2668,9 +2648,7 @@ export function migrateProject(
         ? Math.max(
             14,
             Math.min(
-              support.consoleLength -
-                6,
-
+              support.consoleLength - 6,
               Number(
                 support.cameraMountOffset,
               ),
@@ -2679,18 +2657,14 @@ export function migrateProject(
         : Math.max(
             14,
             Math.min(
-              support.consoleLength -
-                6,
-
+              support.consoleLength - 6,
               defaultMountOffset,
             ),
           );
 
     support.cameraSlotsA =
       Number.isFinite(
-        Number(
-          support.cameraSlotsA,
-        ),
+        Number(support.cameraSlotsA),
       )
         ? Math.max(
             0,
@@ -2707,9 +2681,7 @@ export function migrateProject(
 
     support.cameraSlotsB =
       Number.isFinite(
-        Number(
-          support.cameraSlotsB,
-        ),
+        Number(support.cameraSlotsB),
       )
         ? Math.max(
             0,
@@ -2726,9 +2698,7 @@ export function migrateProject(
 
     support.labelOffsetX =
       Number.isFinite(
-        Number(
-          support.labelOffsetX,
-        ),
+        Number(support.labelOffsetX),
       )
         ? Math.max(
             -360,
@@ -2743,9 +2713,7 @@ export function migrateProject(
 
     support.labelOffsetY =
       Number.isFinite(
-        Number(
-          support.labelOffsetY,
-        ),
+        Number(support.labelOffsetY),
       )
         ? Math.max(
             -360,
@@ -2759,7 +2727,6 @@ export function migrateProject(
         : 40;
   }
 
-
   const supportIds =
     new Set(
       migrated.supports.map(
@@ -2767,7 +2734,6 @@ export function migrateProject(
           support.id,
       ),
     );
-
 
   migrated.cameras =
     migrated.cameras.filter(
@@ -2777,46 +2743,36 @@ export function migrateProject(
         ),
     );
 
-
   for (
-    const camera of
-    migrated.cameras
+    const camera of migrated.cameras
   ) {
     camera.kind =
       CAMERA_DEFINITIONS.some(
         (definition) =>
-          definition.id ===
-          camera.kind,
+          definition.id === camera.kind,
       )
         ? camera.kind
         : "overview";
-
 
     camera.side =
       camera.side === "b"
         ? "b"
         : "a";
 
-
     camera.slot =
       Number.isFinite(
-        Number(
-          camera.slot,
-        ),
+        Number(camera.slot),
       )
         ? Math.max(
             0,
             Math.min(
               7,
               Math.round(
-                Number(
-                  camera.slot,
-                ),
+                Number(camera.slot),
               ),
             ),
           )
         : 0;
-
 
     const support =
       migrated.supports.find(
@@ -2825,14 +2781,10 @@ export function migrateProject(
           camera.supportId,
       );
 
-
     const count =
       camera.side === "a"
-        ? support?.cameraSlotsA ??
-          1
-        : support?.cameraSlotsB ??
-          1;
-
+        ? support?.cameraSlotsA ?? 1
+        : support?.cameraSlotsB ?? 1;
 
     camera.slot =
       Math.max(
@@ -2846,30 +2798,22 @@ export function migrateProject(
         ),
       );
 
-
     camera.rotation =
       Number.isFinite(
-        Number(
-          camera.rotation,
-        ),
+        Number(camera.rotation),
       )
         ? Math.max(
             -90,
             Math.min(
               90,
-              Number(
-                camera.rotation,
-              ),
+              Number(camera.rotation),
             ),
           )
         : 0;
 
-
     camera.labelOffsetX =
       Number.isFinite(
-        Number(
-          camera.labelOffsetX,
-        ),
+        Number(camera.labelOffsetX),
       )
         ? Math.max(
             -360,
@@ -2882,12 +2826,9 @@ export function migrateProject(
           )
         : 0;
 
-
     camera.labelOffsetY =
       Number.isFinite(
-        Number(
-          camera.labelOffsetY,
-        ),
+        Number(camera.labelOffsetY),
       )
         ? Math.max(
             -360,
@@ -2900,16 +2841,35 @@ export function migrateProject(
           )
         : 54;
 
+    const coverageDefaults = cameraCoverageDefaults(camera.kind);
+
+    camera.coverageOffsetX =
+      Number.isFinite(Number(camera.coverageOffsetX))
+        ? Math.max(-2400, Math.min(2400, Number(camera.coverageOffsetX)))
+        : 0;
+
+    camera.coverageOffsetY =
+      Number.isFinite(Number(camera.coverageOffsetY))
+        ? Math.max(-2400, Math.min(2400, Number(camera.coverageOffsetY)))
+        : 0;
+
+    camera.coverageWidth =
+      Number.isFinite(Number(camera.coverageWidth))
+        ? Math.max(24, Math.min(1440, Number(camera.coverageWidth)))
+        : coverageDefaults.width;
+
+    camera.coverageDepth =
+      Number.isFinite(Number(camera.coverageDepth))
+        ? Math.max(24, Math.min(1800, Number(camera.coverageDepth)))
+        : coverageDefaults.depth;
 
     camera.name =
       camera.name ||
       `${CAMERA_DEFINITIONS.find(
         (definition) =>
-          definition.id ===
-          camera.kind,
+          definition.id === camera.kind,
       )?.prefix ?? "C"}00001`;
   }
-
 
   migrated.cabinets =
     migrated.cabinets.filter(
@@ -2919,53 +2879,37 @@ export function migrateProject(
         ),
     );
 
-
   for (
-    const cabinet of
-    migrated.cabinets
+    const cabinet of migrated.cabinets
   ) {
     cabinet.kind =
       CABINET_DEFINITIONS.some(
         (definition) =>
-          definition.id ===
-          cabinet.kind,
+          definition.id === cabinet.kind,
       )
         ? cabinet.kind
         : "control-cabinet";
 
-
     cabinet.angle =
       Number.isFinite(
-        Number(
-          cabinet.angle,
-        ),
+        Number(cabinet.angle),
       )
-        ? Number(
-            cabinet.angle,
-          )
+        ? Number(cabinet.angle)
         : 45;
-
 
     cabinet.distance =
       Number.isFinite(
-        Number(
-          cabinet.distance,
-        ),
+        Number(cabinet.distance),
       )
         ? Math.max(
             34,
-            Number(
-              cabinet.distance,
-            ),
+            Number(cabinet.distance),
           )
         : 54;
 
-
     cabinet.name =
-      cabinet.name ||
-      "ШУ";
+      cabinet.name || "ШУ";
   }
-
 
   migrated.cables =
     migrated.cables.filter(
@@ -2980,72 +2924,50 @@ export function migrateProject(
           cable.toSupportId,
     );
 
-
   for (
-    const cable of
-    migrated.cables
+    const cable of migrated.cables
   ) {
     cable.kind =
       CABLE_DEFINITIONS.some(
         (definition) =>
-          definition.id ===
-          cable.kind,
+          definition.id === cable.kind,
       )
         ? cable.kind
         : "fiber";
 
-
     cable.points =
-      Array.isArray(
-        cable.points,
-      )
+      Array.isArray(cable.points)
         ? cable.points.filter(
             (point) =>
-              Number.isFinite(
-                point.x,
-              ) &&
-              Number.isFinite(
-                point.y,
-              ),
+              Number.isFinite(point.x) &&
+              Number.isFinite(point.y),
           )
         : [];
 
-
     cable.name =
-      cable.name ||
-      "Кабель";
-
+      cable.name || "Кабель";
 
     cable.labelText =
-      typeof cable.labelText ===
-      "string"
+      typeof cable.labelText === "string"
         ? cable.labelText
         : "";
 
-
     cable.labelAt =
       Number.isFinite(
-        Number(
-          cable.labelAt,
-        ),
+        Number(cable.labelAt),
       )
         ? Math.max(
             0.05,
             Math.min(
               0.95,
-              Number(
-                cable.labelAt,
-              ),
+              Number(cable.labelAt),
             ),
           )
         : 0.5;
 
-
     cable.labelOffset =
       Number.isFinite(
-        Number(
-          cable.labelOffset,
-        ),
+        Number(cable.labelOffset),
       )
         ? Math.max(
             -240,
@@ -3057,8 +2979,11 @@ export function migrateProject(
             ),
           )
         : 48;
-  }
 
+    /* Старые назначения шкафов больше не используются. */
+    cable.fromCabinetId = null;
+    cable.toCabinetId = null;
+  }
 
   const cameraIds =
     new Set(
@@ -3068,7 +2993,6 @@ export function migrateProject(
       ),
     );
 
-
   const cabinetIds =
     new Set(
       migrated.cabinets.map(
@@ -3076,7 +3000,6 @@ export function migrateProject(
           cabinet.id,
       ),
     );
-
 
   migrated.cameraCables =
     migrated.cameraCables.filter(
@@ -3089,38 +3012,27 @@ export function migrateProject(
         ),
     );
 
-
   for (
-    const cable of
-    migrated.cameraCables
+    const cable of migrated.cameraCables
   ) {
     cable.kind =
       cable.kind === "control"
         ? "control"
         : "utp";
 
-
     cable.routing =
       cable.routing === "manual"
         ? "manual"
         : "auto";
 
-
     cable.points =
-      Array.isArray(
-        cable.points,
-      )
+      Array.isArray(cable.points)
         ? cable.points.filter(
             (point) =>
-              Number.isFinite(
-                point.x,
-              ) &&
-              Number.isFinite(
-                point.y,
-              ),
+              Number.isFinite(point.x) &&
+              Number.isFinite(point.y),
           )
         : [];
-
 
     cable.name =
       cable.name ||
@@ -3131,14 +3043,12 @@ export function migrateProject(
       );
   }
 
-
   migrated.junctionSettings =
     Array.isArray(
       migrated.junctionSettings,
     )
       ? migrated.junctionSettings
       : [];
-
 
   for (
     const junction of
@@ -3150,7 +3060,6 @@ export function migrateProject(
       )
         ? junction.approaches
         : [];
-
 
     for (
       const approach of
@@ -3167,17 +3076,13 @@ export function migrateProject(
           ? approach.trafficLights
           : "none";
 
-
       const lightOffset =
         Number(
           approach.trafficLightOffset,
         );
 
-
       approach.trafficLightOffset =
-        Number.isFinite(
-          lightOffset,
-        )
+        Number.isFinite(lightOffset)
           ? Math.max(
               0,
               Math.min(
@@ -3189,16 +3094,12 @@ export function migrateProject(
     }
   }
 
-
   migrated.gridSize =
-    migrated.gridSize ||
-    20;
-
+    migrated.gridSize || 20;
 
   migrated.updatedAt =
     migrated.updatedAt ||
     new Date().toISOString();
-
 
   return migrated;
 }

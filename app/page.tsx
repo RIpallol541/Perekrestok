@@ -15,6 +15,7 @@ import {
   CameraMountSide,
   cameraCableRoutePoints,
   cameraMountPosition,
+  interSupportCableRoutePoints,
   CableKind,
   createCabinet,
   createCable,
@@ -134,16 +135,38 @@ export default function Home() {
   const selectedCable = selection?.type === "cable" ? project.cables.find((cable) => cable.id === selection.cableId) ?? null : null;
   const selectedCameraCable = selection?.type === "camera-cable" ? project.cameraCables.find((cable) => cable.id === selection.cableId) ?? null : null;
   const selectedCabinetSupport = selectedCabinet ? project.supports.find((support) => support.id === selectedCabinet.supportId) ?? null : null;
+  const selectedCabinetSupportCables =
+  selectedCabinet
+    ? project.cables.filter(
+        (cable) =>
+          cable.fromSupportId ===
+            selectedCabinet.supportId ||
+          cable.toSupportId ===
+            selectedCabinet.supportId,
+      )
+    : [];
   const selectedCameraSupport = selectedCamera ? project.supports.find((support) => support.id === selectedCamera.supportId) ?? null : null;
   const selectedCameraCableSource = selectedCameraCable ? project.cabinets.find((cabinet) => cabinet.id === selectedCameraCable.sourceCabinetId) ?? null : null;
   const selectedCameraCableTarget = selectedCameraCable ? project.cameras.find((camera) => camera.id === selectedCameraCable.targetCameraId) ?? null : null;
   const selectedCameraCablePoints = selectedCameraCable ? cameraCableRoutePoints(selectedCameraCable, project.supports, project.cabinets, project.cameras) : [];
   const selectedCameraCableLength = selectedCameraCablePoints.slice(1).reduce((sum, point, index) => sum + Math.hypot(point.x - selectedCameraCablePoints[index].x, point.y - selectedCameraCablePoints[index].y), 0);
-  const selectedCablePoints = selectedCable ? [
-    project.supports.find((support) => support.id === selectedCable.fromSupportId),
-    ...selectedCable.points,
-    project.supports.find((support) => support.id === selectedCable.toSupportId),
-  ].filter((point): point is { x: number; y: number } => Boolean(point)) : [];
+  const selectedCablePoints =
+  selectedCable
+    ? interSupportCableRoutePoints(
+        selectedCable,
+        project.supports,
+        project.cabinets,
+        project.cameras,
+
+        /*
+         * Передаём все линии проекта,
+         * чтобы длина считалась по той же
+         * геометрии, которая отображается.
+         */
+        project.cables,
+        project.cameraCables,
+      )
+    : [];
   const selectedCableLength = selectedCablePoints.slice(1).reduce((sum, point, index) => sum + Math.hypot(point.x - selectedCablePoints[index].x, point.y - selectedCablePoints[index].y), 0);
   const selectedFeature = selection?.type === "feature"
     ? selectedRoad?.features.find((feature) => feature.id === selection.featureId) ?? null
@@ -217,11 +240,66 @@ export default function Home() {
         draft.cameras = draft.cameras.filter((camera) => camera.id !== selection.cameraId);
         draft.cameraCables = draft.cameraCables.filter((cable) => cable.targetCameraId !== selection.cameraId);
       });
-    } else if (selection.type === "cabinet") {
-      history.commit((draft) => {
-        draft.cabinets = draft.cabinets.filter((cabinet) => cabinet.id !== selection.cabinetId);
-        draft.cameraCables = draft.cameraCables.filter((cable) => cable.sourceCabinetId !== selection.cabinetId);
-      });
+      } else if (
+      selection.type ===
+      "cabinet"
+    ) {
+      history.commit(
+        (draft) => {
+          /*
+          * Удаляем сам шкаф.
+          */
+          draft.cabinets =
+            draft.cabinets.filter(
+              (cabinet) =>
+                cabinet.id !==
+                selection.cabinetId,
+            );
+
+
+          /*
+          * Удаляем подключения
+          * камер, которые начинались
+          * именно от этого шкафа.
+          */
+          draft.cameraCables =
+            draft.cameraCables.filter(
+              (cable) =>
+                cable.sourceCabinetId !==
+                selection.cabinetId,
+            );
+
+
+          /*
+          * Межопорные кабели НЕ удаляем.
+          *
+          * Если кабель был явно заведён
+          * в удаляемый шкаф —
+          * возвращаем этот конец
+          * в автоматический режим.
+          */
+          for (
+            const cable of
+            draft.cables
+          ) {
+            if (
+              cable.fromCabinetId ===
+              selection.cabinetId
+            ) {
+              cable.fromCabinetId =
+                undefined;
+            }
+
+            if (
+              cable.toCabinetId ===
+              selection.cabinetId
+            ) {
+              cable.toCabinetId =
+                undefined;
+            }
+          }
+        },
+      );
     } else if (selection.type === "cable") {
       history.commit((draft) => { draft.cables = draft.cables.filter((cable) => cable.id !== selection.cableId); });
     } else if (selection.type === "camera-cable") {
@@ -577,7 +655,49 @@ export default function Home() {
       if (cable) recipe(cable);
     });
   }
+function setCableCabinetAtSupport(
+  cableId: string,
+  supportId: string,
+  cabinetId: string | null | undefined,
+) {
+  history.commit((draft) => {
+    const cable =
+      draft.cables.find(
+        (candidate) =>
+          candidate.id ===
+          cableId,
+      );
 
+    if (!cable) {
+      return;
+    }
+
+    /*
+     * Кабель может приходить
+     * к этой опоре своим началом.
+     */
+    if (
+      cable.fromSupportId ===
+      supportId
+    ) {
+      cable.fromCabinetId =
+        cabinetId;
+
+      return;
+    }
+
+    /*
+     * Или своим концом.
+     */
+    if (
+      cable.toSupportId ===
+      supportId
+    ) {
+      cable.toCabinetId =
+        cabinetId;
+    }
+  });
+}
   function updateRoad(recipe: (road: NonNullable<typeof selectedRoad>) => void) {
     if (!selectedRoad) return;
     history.commit((draft) => {
@@ -1179,6 +1299,16 @@ export default function Home() {
                 const camera = draft.cameras.find((candidate) => candidate.id === cameraId);
                 if (camera) { camera.labelOffsetX = offset.x; camera.labelOffsetY = offset.y; }
               })}
+              onMoveCameraCoverage={(cameraId, offset) => history.transient((draft) => {
+                const camera = draft.cameras.find((candidate) => candidate.id === cameraId);
+                if (camera) { camera.coverageOffsetX = offset.x; camera.coverageOffsetY = offset.y; }
+              })}
+              onResizeCameraCoverage={(cameraId, dimension, value) => history.transient((draft) => {
+                const camera = draft.cameras.find((candidate) => candidate.id === cameraId);
+                if (!camera) return;
+                if (dimension === "width") camera.coverageWidth = value;
+                else camera.coverageDepth = value;
+              })}
               onMoveCabinet={(cabinetId, point) => history.transient((draft) => {
                 const cabinet = draft.cabinets.find((candidate) => candidate.id === cabinetId);
                 const support = cabinet ? draft.supports.find((candidate) => candidate.id === cabinet.supportId) : undefined;
@@ -1335,6 +1465,17 @@ export default function Home() {
               }}>{Array.from({ length: selectedCamera.side === "a" ? selectedCameraSupport.cameraSlotsA : selectedCameraSupport.cameraSlotsB }, (_, slot) => <option key={slot} value={slot}>Место {slot + 1}</option>)}</select></label>
               <label className="range-property"><span>Поворот устройства <b>{Math.round(selectedCamera.rotation)}°</b></span><input type="range" min="-90" max="90" step="5" value={selectedCamera.rotation} onChange={(event) => updateCamera((camera) => { camera.rotation = Number(event.target.value); })} /></label>
               <div className="camera-label-properties">
+                <p className="section-label">Область обзора</p>
+                <div className="coordinate-grid">
+                  <label><span>Ширина, м</span><input type="number" min="2" max="120" step="0.5" value={(selectedCamera.coverageWidth / 12).toFixed(1)} onChange={(event) => updateCamera((camera) => { camera.coverageWidth = Math.max(24, Math.min(1440, Number(event.target.value) * 12)); })} /></label>
+                  <label><span>Длина, м</span><input type="number" min="2" max="150" step="0.5" value={(selectedCamera.coverageDepth / 12).toFixed(1)} onChange={(event) => updateCamera((camera) => { camera.coverageDepth = Math.max(24, Math.min(1800, Number(event.target.value) * 12)); })} /></label>
+                  <label><span>Смещение X, м</span><input type="number" step="0.5" value={(selectedCamera.coverageOffsetX / 12).toFixed(1)} onChange={(event) => updateCamera((camera) => { camera.coverageOffsetX = Math.max(-2400, Math.min(2400, Number(event.target.value) * 12)); })} /></label>
+                  <label><span>Смещение Y, м</span><input type="number" step="0.5" value={(selectedCamera.coverageOffsetY / 12).toFixed(1)} onChange={(event) => updateCamera((camera) => { camera.coverageOffsetY = Math.max(-2400, Math.min(2400, Number(event.target.value) * 12)); })} /></label>
+                </div>
+                <button className="branch-button" onClick={() => updateCamera((camera) => { camera.coverageOffsetX = 0; camera.coverageOffsetY = 0; })}>Вернуть к камере</button>
+                <div className="property-hint">Выберите камеру: прямоугольник обзора будет виден на схеме. Его можно перетащить за любую внутреннюю область; ширину и длину задайте здесь.</div>
+              </div>
+              <div className="camera-label-properties">
                 <p className="section-label">Вынос подписи камеры</p>
                 <div className="coordinate-grid">
                   <label><span>Поперёк, м</span><input type="number" step="0.1" value={(selectedCamera.labelOffsetX / 12).toFixed(1)} onChange={(event) => updateCamera((camera) => { camera.labelOffsetX = Math.max(-360, Math.min(360, Number(event.target.value) * 12)); })} /></label>
@@ -1371,17 +1512,361 @@ export default function Home() {
             </div>
           )}
 
-          {selection?.type === "cabinet" && selectedCabinet && selectedCabinetSupport && (
-            <div className="property-stack">
-              <div className="property-hint">Оборудование жёстко связано с опорой «{selectedCabinetSupport.name}». Его можно перетаскивать вокруг опоры прямо на схеме.</div>
-              <label><span>Обозначение</span><input value={selectedCabinet.name} onChange={(event) => updateCabinet((cabinet) => { cabinet.name = event.target.value; })} /></label>
-              <label><span>Тип оборудования</span><select value={selectedCabinet.kind} onChange={(event) => updateCabinet((cabinet) => { cabinet.kind = event.target.value as CabinetKind; })}>{CABINET_DEFINITIONS.map((definition) => <option key={definition.id} value={definition.id}>{definition.name}</option>)}</select></label>
-              <label><span>Опора</span><select value={selectedCabinet.supportId} onChange={(event) => updateCabinet((cabinet) => { cabinet.supportId = event.target.value; })}>{project.supports.map((support) => <option key={support.id} value={support.id}>{support.name}</option>)}</select></label>
-              <label className="range-property"><span>Угол относительно консоли <b>{Math.round(selectedCabinet.angle)}°</b></span><input type="range" min="-180" max="180" step="5" value={selectedCabinet.angle} onChange={(event) => updateCabinet((cabinet) => { cabinet.angle = Number(event.target.value); })} /></label>
-              <label className="range-property"><span>Вынос от опоры <b>{(selectedCabinet.distance / 12).toFixed(1)} м</b></span><input type="range" min="34" max="140" step="2" value={selectedCabinet.distance} onChange={(event) => updateCabinet((cabinet) => { cabinet.distance = Number(event.target.value); })} /></label>
-              <button className="danger-button" onClick={deleteSelection}>Снять оборудование</button>
-            </div>
-          )}
+          {selection?.type === "cabinet" &&
+            selectedCabinet &&
+            selectedCabinetSupport && (
+              <div className="property-stack">
+
+                <div className="property-hint">
+                  Оборудование связано с выбранной опорой.
+                  Межопорные кабели всегда сначала приходят
+                  к самой опоре, после чего отдельным коротким
+                  участком могут быть заведены в этот шкаф.
+                </div>
+
+
+                <label>
+                  <span>
+                    Обозначение
+                  </span>
+
+                  <input
+                    value={
+                      selectedCabinet.name
+                    }
+
+                    onChange={(event) =>
+                      updateCabinet(
+                        (cabinet) => {
+                          cabinet.name =
+                            event.target.value;
+                        },
+                      )
+                    }
+                  />
+                </label>
+
+
+                <label>
+                  <span>
+                    Тип оборудования
+                  </span>
+
+                  <select
+                    value={
+                      selectedCabinet.kind
+                    }
+
+                    onChange={(event) =>
+                      updateCabinet(
+                        (cabinet) => {
+                          cabinet.kind =
+                            event.target.value as CabinetKind;
+                        },
+                      )
+                    }
+                  >
+                    {CABINET_DEFINITIONS.map(
+                      (definition) => (
+                        <option
+                          key={
+                            definition.id
+                          }
+                          value={
+                            definition.id
+                          }
+                        >
+                          {
+                            definition.name
+                          }
+                        </option>
+                      ),
+                    )}
+                  </select>
+                </label>
+
+
+                <label>
+                  <span>
+                    Опора
+                  </span>
+
+                  <select
+                    value={
+                      selectedCabinet.supportId
+                    }
+
+                    onChange={(event) =>
+                      updateCabinet(
+                        (cabinet) => {
+                          cabinet.supportId =
+                            event.target.value;
+                        },
+                      )
+                    }
+                  >
+                    {project.supports.map(
+                      (support) => (
+                        <option
+                          key={
+                            support.id
+                          }
+                          value={
+                            support.id
+                          }
+                        >
+                          {
+                            support.name.trim() ||
+                            SUPPORT_DEFINITIONS.find(
+                              (definition) =>
+                                definition.id ===
+                                support.kind,
+                            )?.name ||
+                            "Опора"
+                          }
+                        </option>
+                      ),
+                    )}
+                  </select>
+                </label>
+
+
+                <label className="range-property">
+                  <span>
+                    Угол относительно опоры{" "}
+                    <b>
+                      {Math.round(
+                        selectedCabinet.angle,
+                      )}
+                      °
+                    </b>
+                  </span>
+
+                  <input
+                    type="range"
+                    min="-180"
+                    max="180"
+                    step="5"
+
+                    value={
+                      selectedCabinet.angle
+                    }
+
+                    onChange={(event) =>
+                      updateCabinet(
+                        (cabinet) => {
+                          cabinet.angle =
+                            Number(
+                              event.target.value,
+                            );
+                        },
+                      )
+                    }
+                  />
+                </label>
+
+
+                <label className="range-property">
+                  <span>
+                    Вынос от опоры{" "}
+                    <b>
+                      {(
+                        selectedCabinet.distance /
+                        12
+                      ).toFixed(1)}
+                      {" "}м
+                    </b>
+                  </span>
+
+                  <input
+                    type="range"
+                    min="34"
+                    max="140"
+                    step="2"
+
+                    value={
+                      selectedCabinet.distance
+                    }
+
+                    onChange={(event) =>
+                      updateCabinet(
+                        (cabinet) => {
+                          cabinet.distance =
+                            Number(
+                              event.target.value,
+                            );
+                        },
+                      )
+                    }
+                  />
+                </label>
+
+
+                <div hidden>
+                {/* ==============================================
+                    КАБЕЛИ, ПРИХОДЯЩИЕ НА ЭТУ ОПОРУ
+                    ============================================== */}
+
+                <p className="section-label">
+                  Межопорные кабели этой опоры
+                </p>
+
+
+                {selectedCabinetSupportCables.length === 0 ? (
+                  <div className="property-hint">
+                    На эту опору пока не приходит ни одного
+                    межопорного кабеля.
+                  </div>
+                ) : (
+                  <div className="cabinet-cable-connections">
+
+                    {selectedCabinetSupportCables.map(
+                      (cable) => {
+                        /*
+                        * Определяем, каким концом
+                        * кабель подключён к этой опоре.
+                        */
+                        const endpoint =
+                          cable.fromSupportId ===
+                          selectedCabinet.supportId
+                            ? "from"
+                            : "to";
+
+
+                        /* null/undefined = опора, string = конкретный шкаф. */
+                        const cabinetId =
+                          endpoint === "from"
+                            ? cable.fromCabinetId
+                            : cable.toCabinetId;
+
+
+                        const definition =
+                          CABLE_DEFINITIONS.find(
+                            (candidate) =>
+                              candidate.id ===
+                              cable.kind,
+                          );
+
+
+                        const connectedHere =
+                          cabinetId ===
+                          selectedCabinet.id;
+
+
+                        return (
+                          <section
+                            key={
+                              cable.id
+                            }
+                            className={
+                              connectedHere
+                                ? "cabinet-cable-card connected"
+                                : "cabinet-cable-card"
+                            }
+                          >
+
+                            <header>
+                              <i
+                                style={{
+                                  background:
+                                    definition?.color ??
+                                    "#777",
+                                }}
+                              />
+
+                              <div>
+                                <b>
+                                  {cable.name ||
+                                    definition?.name ||
+                                    "Кабель"}
+                                </b>
+
+                                <span>
+                                  {definition?.name ??
+                                    cable.kind}
+                                </span>
+                              </div>
+                            </header>
+
+
+                            <div className="segmented">
+                              <button
+                                className={
+                                  cabinetId == null
+                                    ? "active"
+                                    : ""
+                                }
+
+                                onClick={() =>
+                                  setCableCabinetAtSupport(
+                                    cable.id,
+                                    selectedCabinet.supportId,
+                                    null,
+                                  )
+                                }
+                              >
+                                В опору
+                              </button>
+
+
+                              {/* ИМЕННО ЭТОТ ШКАФ */}
+                              <button
+                                className={
+                                  connectedHere
+                                    ? "active"
+                                    : ""
+                                }
+
+                                onClick={() =>
+                                  setCableCabinetAtSupport(
+                                    cable.id,
+                                    selectedCabinet.supportId,
+                                    selectedCabinet.id,
+                                  )
+                                }
+                              >
+                                Этот шкаф
+                              </button>
+
+                            </div>
+
+
+                            <small>
+                              {cabinetId == null
+                                ? "Кабель подключён к одной из четырёх точек опоры."
+                                : connectedHere
+                                  ? "Кабель подходит к опоре и ломаной входит в шкаф, не подключаясь к опоре."
+                                  : "Кабель входит в другой шкаф этой опоры."}
+                            </small>
+
+                          </section>
+                        );
+                      },
+                    )}
+
+                  </div>
+                )}
+
+
+                <div className="property-hint">
+                  Для каждого кабеля выберите единственную точку
+                  назначения: опору либо этот шкаф. На опоре и на
+                  каждой грани шкафа предусмотрено до четырёх вводов.
+                </div>
+                </div>
+
+
+                <button
+                  className="danger-button"
+                  onClick={
+                    deleteSelection
+                  }
+                >
+                  Снять оборудование
+                </button>
+
+              </div>
+            )}
 
           {selection?.type === "cable" && selectedCable && (
             <div className="property-stack">
@@ -1389,6 +1874,140 @@ export default function Home() {
               <label><span>Служебное имя</span><input value={selectedCable.name} onChange={(event) => updateCable((cable) => { cable.name = event.target.value; })} /></label>
               <label><span>Тип кабеля</span><select value={selectedCable.kind} onChange={(event) => updateCable((cable) => { cable.kind = event.target.value as CableKind; })}>{CABLE_DEFINITIONS.map((definition) => <option key={definition.id} value={definition.id}>{definition.name}</option>)}</select></label>
               <div className="cable-endpoints"><span>{project.supports.find((support) => support.id === selectedCable.fromSupportId)?.name ?? "Нет начала"}</span><i>→</i><span>{project.supports.find((support) => support.id === selectedCable.toSupportId)?.name ?? "Нет конца"}</span></div>
+              <div hidden>
+              <p className="section-label">
+                Подключение кабеля к оборудованию
+              </p>
+
+
+              <label>
+                <span>
+                  На начальной опоре
+                </span>
+
+                <select
+                  value={
+                    selectedCable.fromCabinetId == null
+                        ? "__support__"
+                        : selectedCable.fromCabinetId
+                  }
+
+                  onChange={(event) => {
+                    const value =
+                      event.target.value;
+
+                    updateCable((cable) => {
+                      if (value === "__support__") {
+                        cable.fromCabinetId =
+                          null;
+                      } else {
+                        cable.fromCabinetId =
+                          value;
+                      }
+                    });
+                  }}
+                >
+                  <option value="__support__">
+                    В опору
+                  </option>
+
+                  {project.cabinets
+                    .filter(
+                      (cabinet) =>
+                        cabinet.supportId ===
+                        selectedCable.fromSupportId,
+                    )
+                    .map(
+                      (cabinet) => (
+                        <option
+                          key={cabinet.id}
+                          value={cabinet.id}
+                        >
+                          {cabinet.name ||
+                            CABINET_DEFINITIONS.find(
+                              (definition) =>
+                                definition.id ===
+                                cabinet.kind,
+                            )?.name ||
+                            "Шкаф"}
+                        </option>
+                      ),
+                    )}
+                </select>
+              </label>
+
+
+              <label>
+                <span>
+                  На конечной опоре
+                </span>
+
+                <select
+                  value={
+                    selectedCable.toCabinetId == null
+                        ? "__support__"
+                        : selectedCable.toCabinetId
+                  }
+
+                  onChange={(event) => {
+                    const value =
+                      event.target.value;
+
+                    updateCable((cable) => {
+                      if (value === "__support__") {
+                        cable.toCabinetId =
+                          null;
+                      } else {
+                        cable.toCabinetId =
+                          value;
+                      }
+                    });
+                  }}
+                >
+                  <option value="__support__">
+                    В опору
+                  </option>
+
+                  {project.cabinets
+                    .filter(
+                      (cabinet) =>
+                        cabinet.supportId ===
+                        selectedCable.toSupportId,
+                    )
+                    .map(
+                      (cabinet) => (
+                        <option
+                          key={cabinet.id}
+                          value={cabinet.id}
+                        >
+                          {cabinet.name ||
+                            CABINET_DEFINITIONS.find(
+                              (definition) =>
+                                definition.id ===
+                                cabinet.kind,
+                            )?.name ||
+                            "Шкаф"}
+                        </option>
+                      ),
+                    )}
+                </select>
+              </label>
+
+
+              <div className="property-hint">
+                Для каждого конца выберите «В опору» либо
+                конкретный шкаф. При выборе шкафа кабель подходит
+                к опоре, затем поворачивает под прямыми углами и
+                входит в шкаф, не подключаясь к самой опоре.
+                Ввод располагается напротив кабелей камер, а без них —
+                со стороны подхода межопорной трассы.
+              </div>
+              </div>
+              <div className="property-hint">
+                Межопорный кабель всегда соединяет две опоры и
+                заканчивается в одной из четырёх внутренних точек
+                каждой опоры. Подключение таких кабелей к шкафам отключено.
+              </div>
               <p className="section-label">Необязательная подпись на схеме</p>
               <label><span>Текст подписи</span><input value={selectedCable.labelText} placeholder="Пусто — на кабеле ничего не показано" onChange={(event) => updateCable((cable) => { cable.labelText = event.target.value; })} /></label>
               {selectedCable.labelText.trim() && <div className="cable-label-properties">
